@@ -411,6 +411,8 @@
 #pragma mark XMPPStream Delegate
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+//TODO: Refactor the Delegate to see if the socket is really necessary
+
 - (void)xmppStream:(XMPPStream *)sender socketDidConnect:(GCDAsyncSocket *)socket
 {
 	NSData *currentServerAddress = [socket connectedAddress];

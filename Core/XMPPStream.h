@@ -5,6 +5,8 @@
 
 
 @import KissXML;
+
+//TODO: Remove the TCP Socket from this class
 @import CocoaAsyncSocket;
 
 NS_ASSUME_NONNULL_BEGIN

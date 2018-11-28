@@ -3,6 +3,8 @@
 @class XMPPIQ;
 @class XMPPJID;
 @class XMPPStream;
+
+//TODO: Remove the TCP Socket from this class
 @import CocoaAsyncSocket;
 @protocol TURNSocketDelegate;
 
