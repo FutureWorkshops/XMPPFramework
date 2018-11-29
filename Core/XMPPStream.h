@@ -756,7 +756,7 @@ extern const NSTimeInterval XMPPStreamTimeoutNone;
 
 @interface XMPPElementReceipt : NSObject
 {
-	uint32_t atomicFlags;
+	_Atomic(uint32_t) atomicFlags;
 	dispatch_semaphore_t semaphore;
 }
 

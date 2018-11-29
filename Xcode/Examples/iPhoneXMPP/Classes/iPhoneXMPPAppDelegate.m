@@ -1,7 +1,7 @@
 #import "iPhoneXMPPAppDelegate.h"
 #import "RootViewController.h"
 #import "SettingsViewController.h"
-
+#import <UserNotifications/UserNotifications.h>
 #import <CFNetwork/CFNetwork.h>
 
 @import XMPPFramework;
@@ -104,23 +104,7 @@
 	// The XMPPStream is the base class for all activity.
 	// Everything else plugs into the xmppStream, such as modules/extensions and delegates.
 
-	xmppStream = [[XMPPStream alloc] init];
-	
-	#if !TARGET_IPHONE_SIMULATOR
-	{
-		// Want xmpp to run in the background?
-		// 
-		// P.S. - The simulator doesn't support backgrounding yet.
-		//        When you try to set the associated property on the simulator, it simply fails.
-		//        And when you background an app on the simulator,
-		//        it just queues network traffic til the app is foregrounded again.
-		//        We are patiently waiting for a fix from Apple.
-		//        If you do enableBackgroundingOnSocket on the simulator,
-		//        you will simply see an error message from the xmpp stack when it fails to set the property.
-		
-		xmppStream.enableBackgroundingOnSocket = YES;
-	}
-	#endif
+	xmppStream = [[XMPPStream alloc] initAsTCPSocket:YES];
 	
 	// Setup reconnect
 	// 
@@ -207,9 +191,9 @@
 	// 
 	// If you don't specify a hostPort, then the default (5222) will be used.
 	
-//	[xmppStream setHostName:@"talk.google.com"];
-//	[xmppStream setHostPort:5222];
-//	bypassTLS = YES;
+//    [xmppStream setHostName:@"talk.google.com"];
+//    [xmppStream setHostPort:5222];
+//    bypassTLS = YES;
 
 	// You may need to alter these settings depending on the server you're connecting to
 	customCertEvaluation = YES;
@@ -306,12 +290,11 @@
 	NSError *error = nil;
 	if (![xmppStream connectWithTimeout:XMPPStreamTimeoutNone error:&error])
 	{
-		UIAlertView *alertView = [[UIAlertView alloc] initWithTitle:@"Error connecting" 
-		                                                    message:@"See console for error details." 
-		                                                   delegate:nil 
-		                                          cancelButtonTitle:@"Ok" 
-		                                          otherButtonTitles:nil];
-		[alertView show];
+        UIAlertController *alertController = [UIAlertController alertControllerWithTitle:@"Error connecting"
+                                                                                 message:@"See console for error details."
+                                                                          preferredStyle:UIAlertControllerStyleAlert];
+        [alertController addAction:[UIAlertAction actionWithTitle:@"OK" style:UIAlertActionStyleDefault handler:nil]];
+        [self.window.rootViewController presentViewController:alertController animated:YES completion:nil];
 
 		DDLogError(@"Error connecting: %@", error);
 
@@ -347,14 +330,11 @@
 			   @"Inbound traffic is queued until the keepAliveTimeout:handler: fires.");
 	#endif
 
-	if ([application respondsToSelector:@selector(setKeepAliveTimeout:handler:)]) 
+	if ([application respondsToSelector:@selector(beginBackgroundTaskWithExpirationHandler:)])
 	{
-		[application setKeepAliveTimeout:600 handler:^{
-			
-			DDLogVerbose(@"KeepAliveHandler");
-			
-			// Do other keep alive stuff here.
-		}];
+        [application beginBackgroundTaskWithExpirationHandler:^{
+            DDLogVerbose(@"KeepAliveHandler");
+        }];
 	}
 }
 
@@ -377,6 +357,8 @@
 - (void)xmppStream:(XMPPStream *)sender socketDidConnect:(GCDAsyncSocket *)socket 
 {
 	DDLogVerbose(@"%@: %@", THIS_FILE, THIS_METHOD);
+    [[UNUserNotificationCenter currentNotificationCenter] requestAuthorizationWithOptions:(UNAuthorizationOptionAlert | UNAuthorizationOptionSound)
+                                                                        completionHandler:^(BOOL granted, NSError * _Nullable error) {}];
 }
 
 - (void)xmppStream:(XMPPStream *)sender willSecureWithSettings:(NSMutableDictionary *)settings
@@ -515,21 +497,16 @@
 
 		if ([[UIApplication sharedApplication] applicationState] == UIApplicationStateActive)
 		{
-			UIAlertView *alertView = [[UIAlertView alloc] initWithTitle:displayName
-															  message:body 
-															 delegate:nil 
-													cancelButtonTitle:@"Ok" 
-													otherButtonTitles:nil];
-			[alertView show];
+            UIAlertController *alertController = [UIAlertController alertControllerWithTitle:displayName
+                                                                                     message:body
+                                                                              preferredStyle:UIAlertControllerStyleAlert];
+            [alertController addAction:[UIAlertAction actionWithTitle:@"Ok" style:UIAlertActionStyleDefault handler:nil]];
+            [self.window.rootViewController presentViewController:alertController animated:YES completion:nil];
 		}
 		else
 		{
 			// We are not active, so use a local notification instead
-			UILocalNotification *localNotification = [[UILocalNotification alloc] init];
-			localNotification.alertAction = @"Ok";
-			localNotification.alertBody = [NSString stringWithFormat:@"From: %@\n\n%@",displayName,body];
-
-			[[UIApplication sharedApplication] presentLocalNotificationNow:localNotification];
+            [self presentLocalNotificationWithBody:body];
 		}
 	}
 }
@@ -582,23 +559,29 @@
 	
 	if ([[UIApplication sharedApplication] applicationState] == UIApplicationStateActive)
 	{
-		UIAlertView *alertView = [[UIAlertView alloc] initWithTitle:displayName
-		                                                    message:body 
-		                                                   delegate:nil 
-		                                          cancelButtonTitle:@"Not implemented"
-		                                          otherButtonTitles:nil];
-		[alertView show];
+        UIAlertController *alertController = [UIAlertController alertControllerWithTitle:displayName
+                                                                                 message:body
+                                                                          preferredStyle:UIAlertControllerStyleAlert];
+        [alertController addAction:[UIAlertAction actionWithTitle:@"Not implemented" style:UIAlertActionStyleDefault handler:nil]];
+        [self.window.rootViewController presentViewController:alertController animated:YES completion:nil];
 	} 
 	else 
 	{
 		// We are not active, so use a local notification instead
-		UILocalNotification *localNotification = [[UILocalNotification alloc] init];
-		localNotification.alertAction = @"Not implemented";
-		localNotification.alertBody = body;
-		
-		[[UIApplication sharedApplication] presentLocalNotificationNow:localNotification];
+        [self presentLocalNotificationWithBody:body];
 	}
 	
+}
+
+- (void) presentLocalNotificationWithBody:(NSString *)body {
+    UNMutableNotificationContent *content = [[UNMutableNotificationContent alloc] init];
+    [content setBody:body];
+    [content setSound:[UNNotificationSound defaultSound]];
+    
+    UNTimeIntervalNotificationTrigger *trigger = [UNTimeIntervalNotificationTrigger triggerWithTimeInterval:300 repeats:false];
+    
+    UNNotificationRequest *request = [UNNotificationRequest requestWithIdentifier:[[NSUUID UUID] UUIDString] content:content trigger:trigger];
+    [[UNUserNotificationCenter currentNotificationCenter] addNotificationRequest:request withCompletionHandler:nil];
 }
 
 @end

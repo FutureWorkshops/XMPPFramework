@@ -42,7 +42,7 @@
 	
 	NSMutableDictionary *myJidCache;
 	
-	int32_t pendingRequests;
+	_Atomic(int32_t) pendingRequests;
 	
 	NSManagedObjectModel *managedObjectModel;
 	NSPersistentStoreCoordinator *persistentStoreCoordinator;

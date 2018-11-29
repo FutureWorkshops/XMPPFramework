@@ -7,6 +7,7 @@
 
 #import <objc/runtime.h>
 #import <libkern/OSAtomic.h>
+#import <stdatomic.h>
 
 #if ! __has_feature(objc_arc)
 #warning This file must be compiled with ARC. Use -fobjc-arc flag (or convert project to ARC).
@@ -667,12 +668,8 @@ static NSMutableSet *databaseFileNames;
 	if (coordinator)
 	{
 		XMPPLogVerbose(@"%@: Creating managedObjectContext", [self class]);
-		
-		if ([NSManagedObjectContext instancesRespondToSelector:@selector(initWithConcurrencyType:)])
-			managedObjectContext =
-			    [[NSManagedObjectContext alloc] initWithConcurrencyType:NSConfinementConcurrencyType];
-		else
-			managedObjectContext = [[NSManagedObjectContext alloc] init];
+		managedObjectContext =
+			    [[NSManagedObjectContext alloc] initWithConcurrencyType:NSPrivateQueueConcurrencyType];
 		
 		managedObjectContext.persistentStoreCoordinator = coordinator;
 		managedObjectContext.undoManager = nil;
@@ -712,12 +709,8 @@ static NSMutableSet *databaseFileNames;
 	if (coordinator)
 	{
 		XMPPLogVerbose(@"%@: Creating mainThreadManagedObjectContext", [self class]);
-		
-		if ([NSManagedObjectContext instancesRespondToSelector:@selector(initWithConcurrencyType:)])
-			mainThreadManagedObjectContext =
+		mainThreadManagedObjectContext =
 			    [[NSManagedObjectContext alloc] initWithConcurrencyType:NSMainQueueConcurrencyType];
-		else
-			mainThreadManagedObjectContext = [[NSManagedObjectContext alloc] init];
 		
 		mainThreadManagedObjectContext.persistentStoreCoordinator = coordinator;
 		mainThreadManagedObjectContext.undoManager = nil;
@@ -919,8 +912,7 @@ static NSMutableSet *databaseFileNames;
 - (void)maybeSave
 {
 	// Convenience method in the very rare case that a subclass would need to invoke maybeSave manually.
-	
-	[self maybeSave:OSAtomicAdd32(0, &pendingRequests)];
+	[self maybeSave:atomic_fetch_add(&pendingRequests, 0)];
 }
 
 - (void)executeBlock:(dispatch_block_t)block
@@ -937,7 +929,7 @@ static NSMutableSet *databaseFileNames;
 	// dispatch_Sync
 	//          ^
 	
-	OSAtomicIncrement32(&pendingRequests);
+	atomic_fetch_add(&pendingRequests, 1);
 	dispatch_sync(storageQueue, ^{ @autoreleasepool {
 		
 		block();
@@ -947,7 +939,7 @@ static NSMutableSet *databaseFileNames;
 		
 		dispatch_async(self->storageQueue, ^{ @autoreleasepool {
 			
-			[self maybeSave:OSAtomicDecrement32(&self->pendingRequests)];
+			[self maybeSave:atomic_fetch_sub(&self->pendingRequests, 1)];
 		}});
 		
 	}});
@@ -967,11 +959,11 @@ static NSMutableSet *databaseFileNames;
 	// dispatch_Async
 	//          ^
 	
-	OSAtomicIncrement32(&pendingRequests);
+	atomic_fetch_add(&pendingRequests, 1);
 	dispatch_async(storageQueue, ^{ @autoreleasepool {
 		
 		block();
-		[self maybeSave:OSAtomicDecrement32(&self->pendingRequests)];
+		[self maybeSave:atomic_fetch_sub(&self->pendingRequests, 1)];
 	}});
 }
 

@@ -8,7 +8,8 @@
 #import "XMPPSocket.h"
 #import "NSError+XMPP.h"
 #import <objc/runtime.h>
-#import <libkern/OSAtomic.h>
+#import <stdatomic.h>
+
 
 #if TARGET_OS_IPHONE
   // Note: You may need to add the CFNetwork Framework to your project
@@ -4920,7 +4921,7 @@ static const uint32_t receipt_success = 1 << 1;
 - (void)signalSuccess
 {
 	uint32_t mask = receipt_success;
-	OSAtomicOr32Barrier(mask, &atomicFlags);
+	atomic_fetch_or(&atomicFlags, mask);
 	
 	dispatch_semaphore_signal(semaphore);
 }
@@ -4928,7 +4929,7 @@ static const uint32_t receipt_success = 1 << 1;
 - (void)signalFailure
 {
 	uint32_t mask = receipt_failure;
-	OSAtomicOr32Barrier(mask, &atomicFlags);
+	atomic_fetch_or(&atomicFlags, mask);
 	
 	dispatch_semaphore_signal(semaphore);
 }
@@ -4936,7 +4937,7 @@ static const uint32_t receipt_success = 1 << 1;
 - (BOOL)wait:(NSTimeInterval)timeout_seconds
 {
 	uint32_t mask = 0;
-	uint32_t flags = OSAtomicOr32Barrier(mask, &atomicFlags);
+	uint32_t flags = atomic_fetch_or(&atomicFlags, mask);
 	
 	if (flags != receipt_unknown) return (flags == receipt_success);
 	
@@ -4960,7 +4961,7 @@ static const uint32_t receipt_success = 1 << 1;
 	
 	if (result == 0)
 	{
-		flags = OSAtomicOr32Barrier(mask, &atomicFlags);
+		flags = atomic_fetch_or(&atomicFlags, mask);
 		
 		return (flags == receipt_success);
 	}

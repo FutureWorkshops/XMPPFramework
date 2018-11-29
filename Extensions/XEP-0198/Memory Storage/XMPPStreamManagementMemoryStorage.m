@@ -1,5 +1,5 @@
 #import "XMPPStreamManagementMemoryStorage.h"
-#import <libkern/OSAtomic.h>
+#import <stdatomic.h>
 
 
 @interface XMPPStreamManagementMemoryStorage ()
@@ -11,7 +11,7 @@
 
 @implementation XMPPStreamManagementMemoryStorage
 {
-	int32_t isConfigured;
+	_Atomic(int32_t) isConfigured;
 	
 	NSString *resumptionId;
 	uint32_t timeout;
@@ -27,8 +27,8 @@
 {
 	// This implementation only supports a single xmppStream.
 	// You must create multiple instances for multiple xmppStreams.
-	
-	return OSAtomicCompareAndSwap32(0, 1, &isConfigured);
+    int32_t baseLine = 0;
+	return atomic_compare_exchange_strong(&isConfigured, &baseLine, 1);
 }
 
 /**
