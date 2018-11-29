@@ -8,6 +8,7 @@
 
 #import "XMPPSocket.h"
 #import "NSError+XMPP.h"
+#import "XMPPSSLPinning.h"
 @import SocketRocket;
 @import CocoaAsyncSocket;
 
@@ -17,7 +18,7 @@
 @property (nonatomic, strong) SRWebSocket *webSocket;
 @property (nonatomic, assign) BOOL isP2P;
 @property (nonatomic, assign) dispatch_queue_t processQueue;
-@property (nonatomic, copy) NSArray *sslCertificates;
+@property (nonatomic, strong, nullable) XMPPSSLPinning *sslPining;
 
 @end
 
@@ -44,21 +45,11 @@
 }
 
 - (void) setSSLCertificates:(NSArray<NSData *> * _Nullable)certificates {
-    if (certificates.count == 0) {
-        self.sslCertificates = @[];
-        return;
+    if (certificates == nil || certificates.count == 0) {
+        self.sslPining = nil;
+    } else {
+        self.sslPining = [[XMPPSSLPinning alloc] initWithSSLCertificates:certificates];
     }
-    
-    NSMutableArray *certificateReferences = [NSMutableArray arrayWithCapacity:certificates.count];
-    for (NSData *data in certificates) {
-        CFDataRef certDataRef = (__bridge CFDataRef)data;
-        SecCertificateRef certRef = SecCertificateCreateWithData(NULL, certDataRef);
-        if (certRef != NULL) {
-            [certificateReferences addObject:(__bridge id)certRef];
-        }
-    }
-    
-    self.sslCertificates = [certificateReferences copy];
 }
 
 - (void) connectToHost:(NSString *)host onPort:(NSUInteger)port {
@@ -128,7 +119,7 @@
     }
     
     NSMutableURLRequest *urlRequest = [[NSMutableURLRequest alloc] initWithURL:[components URL]];
-    [urlRequest setSR_SSLPinnedCertificates:self.sslCertificates];
+    [urlRequest setSR_SSLPinnedCertificates:self.sslPining.sslCertificates ?: @[]];
     
     SRWebSocket *webSocket = [[SRWebSocket alloc] initWithURLRequest:urlRequest protocols:nil allowsUntrustedSSLCertificates:NO];
     [webSocket setDelegate:self];
@@ -141,51 +132,13 @@
 - (void)socket:(GCDAsyncSocket *)sock didReceiveTrust:(SecTrustRef)trust
 completionHandler:(void (^)(BOOL shouldTrustPeer))completionHandler
 {
-    dispatch_queue_t bgQueue = dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0);
-    
-    if (self.sslCertificates.count > 0) {
-        NSArray *certificates = [self.sslCertificates copy];
-        dispatch_async(bgQueue, ^{
-            BOOL pinnedCertFound = NO;
-            NSInteger numCerts = SecTrustGetCertificateCount(trust);
-            for (NSInteger i = 0; i < numCerts && !pinnedCertFound; i++) {
-                SecCertificateRef cert = SecTrustGetCertificateAtIndex(trust, i);
-                NSData *certData = CFBridgingRelease(SecCertificateCopyData(cert));
-                for (id ref in certificates) {
-                    SecCertificateRef trustedCert = (__bridge SecCertificateRef)ref;
-                    NSData *trustedCertData = CFBridgingRelease(SecCertificateCopyData(trustedCert));
-                    if ([trustedCertData isEqual:certData]) {
-                        pinnedCertFound = YES;
-                        break;
-                    }
-                }
-            }
-            
-            completionHandler(pinnedCertFound);
-        });
-        return;
-    }
-    
-    if ([self.delegate respondsToSelector:@selector(socket:didReceiveTrust:completionHandler:)]) {
+    if (self.sslPining != nil) {
+        [self.sslPining evaluate:trust withCompletion:completionHandler];
+    } else if ([self.delegate respondsToSelector:@selector(socket:didReceiveTrust:completionHandler:)]) {
         [self.delegate socket:self didReceiveTrust:trust completionHandler:completionHandler];
-        return;
+    } else {
+        [XMPPSSLPinning basicEvaluationOfTrust:trust withCompletion:completionHandler];
     }
-
-    // The delegate method should likely have code similar to this,
-    // but will presumably perform some extra security code stuff.
-    // For example, allowing a specific self-signed certificate that is known to the app.
-    dispatch_async(bgQueue, ^{
-        
-        SecTrustResultType result = kSecTrustResultDeny;
-        OSStatus status = SecTrustEvaluate(trust, &result);
-        
-        if (status == noErr && (result == kSecTrustResultProceed || result == kSecTrustResultUnspecified)) {
-            completionHandler(YES);
-        }
-        else {
-            completionHandler(NO);
-        }
-    });
 }
 
 - (void)socketDidSecure:(GCDAsyncSocket *)sock {
