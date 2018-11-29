@@ -6,6 +6,7 @@
 #import "XMPPSRVResolver.h"
 #import "NSData+XMPP.h"
 #import "XMPPSocket.h"
+#import "NSError+XMPP.h"
 #import <objc/runtime.h>
 #import <libkern/OSAtomic.h>
 
@@ -48,7 +49,6 @@
 // Define the timeouts (in seconds) for SRV
 #define TIMEOUT_SRV_RESOLUTION 30.0
 
-NSString *const XMPPStreamErrorDomain = @"XMPPStreamErrorDomain";
 NSString *const XMPPStreamDidChangeMyJIDNotification = @"XMPPStreamDidChangeMyJID";
 
 const NSTimeInterval XMPPStreamTimeoutNone = -1;
@@ -1053,7 +1053,7 @@ enum XMPPStreamConfig
 			NSString *errMsg = @"Attempting to connect while already connected or connecting.";
 			NSDictionary *info = @{NSLocalizedDescriptionKey : errMsg};
 			
-			err = [NSError errorWithDomain:XMPPStreamErrorDomain code:XMPPStreamInvalidState userInfo:info];
+			err = [NSError xmppStreamErrorWithCode:XMPPStreamInvalidState userInfo:info];
 			
 			result = NO;
 			return_from_block;
@@ -1064,7 +1064,7 @@ enum XMPPStreamConfig
 			NSString *errMsg = @"P2P streams must use either connectTo:withAddress: or connectP2PWithSocket:.";
 			NSDictionary *info = @{NSLocalizedDescriptionKey : errMsg};
 			
-			err = [NSError errorWithDomain:XMPPStreamErrorDomain code:XMPPStreamInvalidType userInfo:info];
+			err = [NSError xmppStreamErrorWithCode:XMPPStreamInvalidType userInfo:info];
 			
 			result = NO;
 			return_from_block;
@@ -1089,7 +1089,7 @@ enum XMPPStreamConfig
 			NSString *errMsg = @"You must set myJID before calling connect.";
 			NSDictionary *info = @{NSLocalizedDescriptionKey : errMsg};
 			
-			err = [NSError errorWithDomain:XMPPStreamErrorDomain code:XMPPStreamInvalidProperty userInfo:info];
+			err = [NSError xmppStreamErrorWithCode:XMPPStreamInvalidProperty userInfo:info];
 			
 			result = NO;
 			return_from_block;
@@ -1210,7 +1210,7 @@ enum XMPPStreamConfig
 			NSString *errMsg = @"Attempting to connect while already connected or connecting.";
 			NSDictionary *info = @{NSLocalizedDescriptionKey : errMsg};
 			
-			err = [NSError errorWithDomain:XMPPStreamErrorDomain code:XMPPStreamInvalidState userInfo:info];
+			err = [NSError xmppStreamErrorWithCode:XMPPStreamInvalidState userInfo:info];
 			
 			result = NO;
 			return_from_block;
@@ -1221,7 +1221,7 @@ enum XMPPStreamConfig
 			NSString *errMsg = @"Non P2P streams must use the connect: method";
 			NSDictionary *info = @{NSLocalizedDescriptionKey : errMsg};
 			
-			err = [NSError errorWithDomain:XMPPStreamErrorDomain code:XMPPStreamInvalidType userInfo:info];
+			err = [NSError xmppStreamErrorWithCode:XMPPStreamInvalidType userInfo:info];
 			
 			result = NO;
 			return_from_block;
@@ -1484,7 +1484,7 @@ enum XMPPStreamConfig
 			NSString *errMsg = @"Please wait until the stream is connected.";
 			NSDictionary *info = @{NSLocalizedDescriptionKey : errMsg};
 			
-			err = [NSError errorWithDomain:XMPPStreamErrorDomain code:XMPPStreamInvalidState userInfo:info];
+			err = [NSError xmppStreamErrorWithCode:XMPPStreamInvalidState userInfo:info];
 			
 			result = NO;
 			return_from_block;
@@ -1495,7 +1495,7 @@ enum XMPPStreamConfig
 			NSString *errMsg = @"The connection is already secure.";
 			NSDictionary *info = @{NSLocalizedDescriptionKey : errMsg};
 			
-			err = [NSError errorWithDomain:XMPPStreamErrorDomain code:XMPPStreamInvalidState userInfo:info];
+			err = [NSError xmppStreamErrorWithCode:XMPPStreamInvalidState userInfo:info];
 			
 			result = NO;
 			return_from_block;
@@ -1506,7 +1506,7 @@ enum XMPPStreamConfig
 			NSString *errMsg = @"The server does not support startTLS.";
 			NSDictionary *info = @{NSLocalizedDescriptionKey : errMsg};
 			
-			err = [NSError errorWithDomain:XMPPStreamErrorDomain code:XMPPStreamUnsupportedAction userInfo:info];
+			err = [NSError xmppStreamErrorWithCode:XMPPStreamUnsupportedAction userInfo:info];
 			
 			result = NO;
 			return_from_block;
@@ -1588,7 +1588,7 @@ enum XMPPStreamConfig
 			NSString *errMsg = @"Please wait until the stream is connected.";
 			NSDictionary *info = @{NSLocalizedDescriptionKey : errMsg};
 			
-			err = [NSError errorWithDomain:XMPPStreamErrorDomain code:XMPPStreamInvalidState userInfo:info];
+			err = [NSError xmppStreamErrorWithCode:XMPPStreamInvalidState userInfo:info];
 			
 			result = NO;
 			return_from_block;
@@ -1599,7 +1599,7 @@ enum XMPPStreamConfig
 			NSString *errMsg = @"The server does not support in band registration.";
 			NSDictionary *info = @{NSLocalizedDescriptionKey : errMsg};
 			
-			err = [NSError errorWithDomain:XMPPStreamErrorDomain code:XMPPStreamUnsupportedAction userInfo:info];
+			err = [NSError xmppStreamErrorWithCode:XMPPStreamUnsupportedAction userInfo:info];
 			
 			result = NO;
 			return_from_block;
@@ -1662,7 +1662,7 @@ enum XMPPStreamConfig
 			NSString *errMsg = @"You must set myJID before calling registerWithPassword:error:.";
 			NSDictionary *info = @{NSLocalizedDescriptionKey : errMsg};
 			
-			err = [NSError errorWithDomain:XMPPStreamErrorDomain code:XMPPStreamInvalidProperty userInfo:info];
+			err = [NSError xmppStreamErrorWithCode:XMPPStreamInvalidProperty userInfo:info];
 			
 			result = NO;
 			return_from_block;
@@ -1779,7 +1779,7 @@ enum XMPPStreamConfig
 			NSString *errMsg = @"Please wait until the stream is connected.";
 			NSDictionary *info = @{NSLocalizedDescriptionKey : errMsg};
 			
-			err = [NSError errorWithDomain:XMPPStreamErrorDomain code:XMPPStreamInvalidState userInfo:info];
+			err = [NSError xmppStreamErrorWithCode:XMPPStreamInvalidState userInfo:info];
 			
 			result = NO;
 			return_from_block;
@@ -1790,7 +1790,7 @@ enum XMPPStreamConfig
 			NSString *errMsg = @"You must set myJID before calling authenticate:error:.";
 			NSDictionary *info = @{NSLocalizedDescriptionKey : errMsg};
 			
-			err = [NSError errorWithDomain:XMPPStreamErrorDomain code:XMPPStreamInvalidProperty userInfo:info];
+			err = [NSError xmppStreamErrorWithCode:XMPPStreamInvalidProperty userInfo:info];
 			
 			result = NO;
 			return_from_block;
@@ -1851,7 +1851,7 @@ enum XMPPStreamConfig
 			NSString *errMsg = @"Please wait until the stream is connected.";
 			NSDictionary *info = @{NSLocalizedDescriptionKey : errMsg};
 			
-			err = [NSError errorWithDomain:XMPPStreamErrorDomain code:XMPPStreamInvalidState userInfo:info];
+			err = [NSError xmppStreamErrorWithCode:XMPPStreamInvalidState userInfo:info];
 			
 			result = NO;
 			return_from_block;
@@ -1862,7 +1862,7 @@ enum XMPPStreamConfig
 			NSString *errMsg = @"You must set myJID before calling authenticate:error:.";
 			NSDictionary *info = @{NSLocalizedDescriptionKey : errMsg};
 			
-			err = [NSError errorWithDomain:XMPPStreamErrorDomain code:XMPPStreamInvalidProperty userInfo:info];
+			err = [NSError xmppStreamErrorWithCode:XMPPStreamInvalidProperty userInfo:info];
 			
 			result = NO;
 			return_from_block;
@@ -1904,7 +1904,7 @@ enum XMPPStreamConfig
 			NSString *errMsg = @"No suitable authentication method found";
 			NSDictionary *info = @{NSLocalizedDescriptionKey : errMsg};
 			
-			err = [NSError errorWithDomain:XMPPStreamErrorDomain code:XMPPStreamUnsupportedAction userInfo:info];
+			err = [NSError xmppStreamErrorWithCode:XMPPStreamUnsupportedAction userInfo:info];
 			
 			result = NO;
 		}
@@ -2582,8 +2582,7 @@ enum XMPPStreamConfig
 {
 	NSAssert(dispatch_get_specific(xmppQueueTag), @"Invoked on incorrect queue");
 	
-	NSError *error = [NSError errorWithDomain:XMPPStreamErrorDomain
-	                                     code:XMPPStreamInvalidState
+	NSError *error = [NSError xmppStreamErrorWithCode:XMPPStreamInvalidState
 	                                 userInfo:nil];
 	
 	[multicastDelegate xmppStream:self didFailToSendIQ:iq error:error];
@@ -2593,8 +2592,7 @@ enum XMPPStreamConfig
 {
 	NSAssert(dispatch_get_specific(xmppQueueTag), @"Invoked on incorrect queue");
 	
-	NSError *error = [NSError errorWithDomain:XMPPStreamErrorDomain
-	                                     code:XMPPStreamInvalidState
+	NSError *error = [NSError xmppStreamErrorWithCode:XMPPStreamInvalidState
 	                                 userInfo:nil];
 	
 	[multicastDelegate xmppStream:self didFailToSendMessage:message error:error];
@@ -2604,8 +2602,7 @@ enum XMPPStreamConfig
 {
 	NSAssert(dispatch_get_specific(xmppQueueTag), @"Invoked on incorrect queue");
 	
-	NSError *error = [NSError errorWithDomain:XMPPStreamErrorDomain
-	                                     code:XMPPStreamInvalidState
+	NSError *error = [NSError xmppStreamErrorWithCode:XMPPStreamInvalidState
 	                                 userInfo:nil];
 	
 	[multicastDelegate xmppStream:self didFailToSendPresence:presence error:error];
@@ -3404,7 +3401,7 @@ enum XMPPStreamConfig
 		NSString *errMsg = @"The server does not support startTLS. And the startTLSPolicy is Required.";
 		NSDictionary *info = @{NSLocalizedDescriptionKey : errMsg};
 		
-		otherError = [NSError errorWithDomain:XMPPStreamErrorDomain code:XMPPStreamUnsupportedAction userInfo:info];
+		otherError = [NSError xmppStreamErrorWithCode:XMPPStreamUnsupportedAction userInfo:info];
 		
         // Close the TCP connection.
 		[self disconnect];

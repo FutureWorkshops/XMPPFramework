@@ -7,6 +7,7 @@
 //
 
 #import "XMPPSocket.h"
+#import "NSError+XMPP.h"
 @import SocketRocket;
 @import CocoaAsyncSocket;
 
@@ -220,7 +221,7 @@ completionHandler:(void (^)(BOOL shouldTrustPeer))completionHandler
 - (void)webSocket:(SRWebSocket *)webSocket didCloseWithCode:(NSInteger)code reason:(NSString *)reason wasClean:(BOOL)wasClean {
     NSError *error = nil;
     if (!wasClean) {
-        error = [NSError errorWithDomain:@"XMPPStreamErrorDomain" code:code userInfo:@{NSLocalizedDescriptionKey: reason}];
+        error = [NSError xmppStreamErrorWithCode:code userInfo:@{NSLocalizedDescriptionKey: reason}];
     }
     [self.delegate socket:self didDisconnectWithError:error];
 }
