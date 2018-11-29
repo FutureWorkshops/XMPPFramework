@@ -57,6 +57,17 @@ extern const NSTimeInterval XMPPStreamTimeoutNone;
 - (instancetype)init;
 
 /**
+ * Standard XMPP initialization.
+ * The stream is a standard client to server connection.
+ *
+ * P2P streams using XEP-0174 are also supported.
+ * See the P2P section below.
+ *
+ * @param tcpSocket A flag to indicate that the instance should use TCP sockets instead of Web sockets
+ **/
+- (instancetype)initAsTCPSocket:(BOOL)tcpSocket;
+
+/**
  * Peer to Peer XMPP initialization.
  * The stream is a direct client to client connection as outlined in XEP-0174.
 **/

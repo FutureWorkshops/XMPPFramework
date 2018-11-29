@@ -16,7 +16,7 @@
 
 @property (nonatomic, strong) GCDAsyncSocket *tcpSocket;
 @property (nonatomic, strong) SRWebSocket *webSocket;
-@property (nonatomic, assign) BOOL isP2P;
+@property (nonatomic, assign) BOOL isTCPSocket;
 @property (nonatomic, assign) dispatch_queue_t processQueue;
 @property (nonatomic, strong, nullable) XMPPSSLPinning *sslPining;
 @property (nonatomic, assign) BOOL shouldDisconnectAfterWritting;
@@ -26,15 +26,20 @@
 @implementation XMPPSocket
 
 - (instancetype) initWithProcessQueue:(dispatch_queue_t)processQueue {
+    return [self initWithProcessQueue:processQueue asTCPSocket:NO];
+}
+
+- (instancetype) initWithProcessQueue:(dispatch_queue_t)processQueue asTCPSocket:(BOOL)tcpSocket {
     self = [super init];
     if (self) {
         self->_processQueue = processQueue;
+        self->_isTCPSocket = tcpSocket;
     }
     return self;
 }
 
 - (void) disconnectAfterWriting {
-    if (self.isP2P) {
+    if (self.isTCPSocket) {
         [self.tcpSocket disconnectAfterWriting];
     } else {
         self.shouldDisconnectAfterWritting = YES;
@@ -42,7 +47,7 @@
 }
 
 - (void) startTLS:(NSDictionary * _Nullable)configuration {
-    if (self.isP2P) {
+    if (self.isTCPSocket) {
         [self.tcpSocket startTLS:configuration];
     }
 }
@@ -57,14 +62,30 @@
 
 - (void) connectToHost:(NSString *)host onPort:(NSUInteger)port {
     [self disconnect];
-    self.isP2P = NO;
-    self.webSocket = [self _newWebSocketConnectToHost:host onPort:port];
-    [self.webSocket open];
+    
+    if (!self.isTCPSocket) {
+        self.webSocket = [self _newWebSocketConnectToHost:host onPort:port];
+        [self.webSocket open];
+        return;
+    }
+    
+    self.tcpSocket = [self _newTCPSocket];
+    
+    NSError *error = nil;
+    BOOL result = [self.tcpSocket connectToHost:host onPort:port error:&error];
+    
+    if (!result || error != nil) {
+        __weak typeof(self) weakSelf = self;
+        dispatch_async(self.processQueue, ^{
+            __strong typeof(weakSelf) strongSelf = weakSelf;
+            [strongSelf.delegate socket:strongSelf didDisconnectWithError:error];
+        });
+    }
 }
 
 - (BOOL) connectToP2POnAddress:(NSData *)address error:(NSError * _Nullable __autoreleasing *)error {
     [self disconnect];
-    self.isP2P = YES;
+    self.isTCPSocket = YES;
     if (self.tcpSocket == nil) {
         self.tcpSocket = [self _newTCPSocket];
     }
@@ -72,7 +93,7 @@
 }
 
 - (void) writeData:(NSData *)data withTag:(long)tag andTimeout:(NSTimeInterval)timeout {
-    if (self.isP2P) {
+    if (self.isTCPSocket) {
         [self.tcpSocket writeData:data withTimeout:timeout tag:tag];
     } else {
         [self.webSocket send:data];
@@ -80,7 +101,7 @@
 }
 
 - (void) readDataWithTimeout:(NSTimeInterval)timeout andTag:(long)tag {
-    if (!self.isP2P) {
+    if (!self.isTCPSocket) {
         return;
     }
     

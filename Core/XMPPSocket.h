@@ -21,7 +21,8 @@ NS_ASSUME_NONNULL_BEGIN
 @property (nonatomic, weak, nullable) id<XMPPSocketDelegate> delegate;
 
 - (instancetype)init NS_UNAVAILABLE;
-- (instancetype)initWithProcessQueue:(dispatch_queue_t)processQueue NS_DESIGNATED_INITIALIZER;
+- (instancetype)initWithProcessQueue:(dispatch_queue_t)processQueue;
+- (instancetype)initWithProcessQueue:(dispatch_queue_t)processQueue asTCPSocket:(BOOL)tcpSocket NS_DESIGNATED_INITIALIZER;
 
 - (void) disconnectAfterWriting;
 - (void) startTLS:(NSDictionary * _Nullable)configuration;

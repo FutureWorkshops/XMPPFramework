@@ -194,9 +194,6 @@ enum XMPPStreamConfig
 	
 	receipts = [[NSMutableArray alloc] init];
     preferIPv6 = YES;
-	
-	// Initialize socket
-	socket = [self newSocket];
 }
 
 /**
@@ -205,10 +202,18 @@ enum XMPPStreamConfig
 **/
 - (id)init
 {
+	return [self initAsTCPSocket:NO];
+}
+
+- (instancetype)initAsTCPSocket:(BOOL)tcpSocket
+{
 	if ((self = [super init]))
 	{
 		// Common initialization
 		[self commonInit];
+		
+		// Initialize socket
+		self->socket = [self newSocketAsTCP:tcpSocket];
 	}
 	return self;
 }
@@ -223,6 +228,8 @@ enum XMPPStreamConfig
     {
 		// Common initialization
 		[self commonInit];
+		
+		self->socket = [self newSocketAsTCP:YES];
 		
 		// Store JID
 		myJID_setByClient = jid;
@@ -4880,8 +4887,8 @@ enum XMPPStreamConfig
 }
 
 /** Allocates and configures a new socket */
-- (XMPPSocket*) newSocket {
-	XMPPSocket *socket = [[XMPPSocket alloc] initWithProcessQueue:xmppQueue];
+- (XMPPSocket*) newSocketAsTCP:(BOOL)tcpSocket {
+	XMPPSocket *socket = [[XMPPSocket alloc] initWithProcessQueue:xmppQueue asTCPSocket:tcpSocket];
 	[socket setDelegate:self];
 	[socket setPreferIPv6:self.preferIPv6];
     return socket;
