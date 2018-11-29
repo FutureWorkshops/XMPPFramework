@@ -5,8 +5,7 @@
 #import "XMPPIDTracker.h"
 #import "XMPPSRVResolver.h"
 #import "NSData+XMPP.h"
-@import SocketRocket;
-@import CocoaAsyncSocket;
+#import "XMPPSocket.h"
 #import <objc/runtime.h>
 #import <libkern/OSAtomic.h>
 
@@ -72,7 +71,7 @@ enum XMPPStreamConfig
 #pragma mark -
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-@interface XMPPStream () <XMPPSRVResolverDelegate, GCDAsyncSocketDelegate>
+@interface XMPPStream () <XMPPSRVResolverDelegate, XMPPSocketDelegate>
 {
 	dispatch_queue_t xmppQueue;
 	void *xmppQueueTag;
@@ -91,9 +90,7 @@ enum XMPPStreamConfig
 	
 	XMPPStreamState state;
 	
-	GCDAsyncSocket *asyncSocket;
-	
-	SRWebSocket *webSocket;
+	XMPPSocket *socket;
 	
 	uint64_t numberOfBytesSent;
 	uint64_t numberOfBytesReceived;
@@ -197,6 +194,9 @@ enum XMPPStreamConfig
 	
 	receipts = [[NSMutableArray alloc] init];
     preferIPv6 = YES;
+	
+	// Initialize socket
+	socket = [self newSocket];
 }
 
 /**
@@ -209,9 +209,6 @@ enum XMPPStreamConfig
 	{
 		// Common initialization
 		[self commonInit];
-		
-		// Initialize socket
-        asyncSocket = [self newSocket];
 	}
 	return self;
 }
@@ -258,9 +255,6 @@ enum XMPPStreamConfig
 	dispatch_release(didReceiveIqQueue);
 	#endif
 	
-	[asyncSocket setDelegate:nil delegateQueue:NULL];
-	[asyncSocket disconnect];
-	
 	[parser setDelegate:nil delegateQueue:NULL];
 	
 	if (keepAliveTimer)
@@ -282,6 +276,10 @@ enum XMPPStreamConfig
 
 @synthesize xmppQueue;
 @synthesize xmppQueueTag;
+
+- (void) setSSLCertificates:(NSArray<NSData *> *)certificates {
+	[socket setSSLCertificates:certificates];
+}
 
 - (XMPPStreamState)state
 {
@@ -1009,8 +1007,7 @@ enum XMPPStreamConfig
         }
         else
         {
-            [asyncSocket disconnect];
-            
+			[socket disconnect];
             // Everthing will be handled in socketDidDisconnect:withError:
         }
     }
@@ -1027,20 +1024,19 @@ enum XMPPStreamConfig
 	
 	XMPPLogTrace();
 	
-	BOOL result = [asyncSocket connectToHost:host onPort:port error:errPtr];
+	//For now, the error pointer will be kept to keep public interface
+	errPtr = nil;
 	
-	if (result && [self resetByteCountPerConnection])
+	[socket connectToHost:host onPort:port];
+	
+	if ([self resetByteCountPerConnection])
 	{
 		numberOfBytesSent = 0;
 		numberOfBytesReceived = 0;
 	}
+	[self startConnectTimeout:timeout];
 	
-	if(result)
-    {
-        [self startConnectTimeout:timeout];
-    }
-	
-	return result;
+	return YES;
 }
 
 - (BOOL)connectWithTimeout:(NSTimeInterval)timeout error:(NSError **)errPtr
@@ -1236,8 +1232,6 @@ enum XMPPStreamConfig
 		
 		// Store remoteJID
 		self->remoteJID = [jid copy];
-		
-		NSAssert((self->asyncSocket == nil), @"Forgot to release the previous asyncSocket instance.");
 
 		// Notify delegates
 		[self->multicastDelegate xmppStreamWillConnect:self];
@@ -1245,11 +1239,8 @@ enum XMPPStreamConfig
 		// Update state
 		self->state = STATE_XMPP_CONNECTING;
 		
-		// Initailize socket
-		self->asyncSocket = [self newSocket];
-		
 		NSError *connectErr = nil;
-		result = [self->asyncSocket connectToAddress:remoteAddr error:&connectErr];
+		result = [self->socket connectToP2POnAddress:remoteAddr error:&connectErr];
 		
 		if (result == NO)
 		{
@@ -1304,7 +1295,7 @@ enum XMPPStreamConfig
 			}
 			else
 			{
-				[self->asyncSocket disconnect];
+				[self->socket disconnect];
 
 				// Everthing will be handled in socketDidDisconnect:withError:
 			}
@@ -1341,7 +1332,7 @@ enum XMPPStreamConfig
 			}
 			else
 			{
-				[self->asyncSocket disconnect];
+				[self->socket disconnect];
 				
 				// Everthing will be handled in socketDidDisconnect:withError:
 			}
@@ -1381,8 +1372,8 @@ enum XMPPStreamConfig
 				XMPPLogSend(@"SEND: %@", termStr);
 				self->numberOfBytesSent += [termData length];
 				
-				[self->asyncSocket writeData:termData withTimeout:TIMEOUT_XMPP_WRITE tag:TAG_XMPP_WRITE_STOP];
-				[self->asyncSocket disconnectAfterWriting];
+				[self->socket writeData:termData withTag:TAG_XMPP_WRITE_STOP andTimeout:TIMEOUT_XMPP_WRITE];
+				[self->socket disconnectAfterWriting];
 				
 				// Everthing will be handled in socketDidDisconnect:withError:
 			}
@@ -1474,9 +1465,9 @@ enum XMPPStreamConfig
 	XMPPLogSend(@"SEND: %@", starttls);
 	numberOfBytesSent += [outgoingData length];
 	
-	[asyncSocket writeData:outgoingData
-			   withTimeout:TIMEOUT_XMPP_WRITE
-					   tag:TAG_XMPP_WRITE_STREAM];
+	[socket writeData:outgoingData
+			  withTag:TAG_XMPP_WRITE_STREAM
+		   andTimeout:TIMEOUT_XMPP_WRITE];
 }
 
 - (BOOL)secureConnection:(NSError **)errPtr
@@ -1630,9 +1621,9 @@ enum XMPPStreamConfig
 		XMPPLogSend(@"SEND: %@", outgoingStr);
 		self->numberOfBytesSent += [outgoingData length];
 		
-		[self->asyncSocket writeData:outgoingData
-		           withTimeout:TIMEOUT_XMPP_WRITE
-		                   tag:TAG_XMPP_WRITE_STREAM];
+		[self->socket writeData:outgoingData
+						withTag:TAG_XMPP_WRITE_STREAM
+					 andTimeout:TIMEOUT_XMPP_WRITE];
 		
 		// Update state
 		self->state = STATE_XMPP_REGISTERING;
@@ -2360,9 +2351,9 @@ enum XMPPStreamConfig
 	XMPPLogSend(@"SEND: %@", outgoingStr);
 	numberOfBytesSent += [outgoingData length];
 	
-	[asyncSocket writeData:outgoingData
-	           withTimeout:TIMEOUT_XMPP_WRITE
-	                   tag:tag];
+	[socket writeData:outgoingData
+			  withTag:tag
+		   andTimeout:TIMEOUT_XMPP_WRITE];
 	
 	[multicastDelegate xmppStream:self didSendIQ:iq];
 }
@@ -2378,9 +2369,9 @@ enum XMPPStreamConfig
 	XMPPLogSend(@"SEND: %@", outgoingStr);
 	numberOfBytesSent += [outgoingData length];
 	
-	[asyncSocket writeData:outgoingData
-	           withTimeout:TIMEOUT_XMPP_WRITE
-	                   tag:tag];
+	[socket writeData:outgoingData
+			  withTag:tag
+		   andTimeout:TIMEOUT_XMPP_WRITE];
 	
 	[multicastDelegate xmppStream:self didSendMessage:message];
 }
@@ -2396,9 +2387,9 @@ enum XMPPStreamConfig
 	XMPPLogSend(@"SEND: %@", outgoingStr);
 	numberOfBytesSent += [outgoingData length];
 	
-	[asyncSocket writeData:outgoingData
-	           withTimeout:TIMEOUT_XMPP_WRITE
-	                   tag:tag];
+	[socket writeData:outgoingData
+			  withTag:tag
+		   andTimeout:TIMEOUT_XMPP_WRITE];
 	
 	// Update myPresence if this is a normal presence element.
 	// In other words, ignore presence subscription stuff, MUC room stuff, etc.
@@ -2429,9 +2420,9 @@ enum XMPPStreamConfig
 	XMPPLogSend(@"SEND: %@", outgoingStr);
 	numberOfBytesSent += [outgoingData length];
 	
-	[asyncSocket writeData:outgoingData
-	           withTimeout:TIMEOUT_XMPP_WRITE
-	                   tag:tag];
+	[socket writeData:outgoingData
+			  withTag:tag
+		   andTimeout:TIMEOUT_XMPP_WRITE];
 	
 	if ([customElementNames countForObject:[element name]])
 	{
@@ -2659,9 +2650,9 @@ enum XMPPStreamConfig
 			XMPPLogSend(@"SEND: %@", outgoingStr);
 			self->numberOfBytesSent += [outgoingData length];
 			
-			[self->asyncSocket writeData:outgoingData
-							 withTimeout:TIMEOUT_XMPP_WRITE
-									 tag:TAG_XMPP_WRITE_STREAM];
+			[self->socket writeData:outgoingData
+							withTag:TAG_XMPP_WRITE_STREAM
+						 andTimeout:TIMEOUT_XMPP_WRITE];
 		}
 		else
 		{
@@ -2694,9 +2685,9 @@ enum XMPPStreamConfig
 			XMPPLogSend(@"SEND: %@", outgoingStr);
 			self->numberOfBytesSent += [outgoingData length];
 			
-			[self->asyncSocket writeData:outgoingData
-							 withTimeout:TIMEOUT_XMPP_WRITE
-									 tag:TAG_XMPP_WRITE_STREAM];
+			[self->socket writeData:outgoingData
+							withTag:TAG_XMPP_WRITE_STREAM
+						 andTimeout:TIMEOUT_XMPP_WRITE];
 		}
 		else
 		{
@@ -3160,7 +3151,7 @@ enum XMPPStreamConfig
 	[multicastDelegate xmppStreamDidStartNegotiation:self];
 	
 	// And start reading in the server's XML stream
-	[asyncSocket readDataWithTimeout:TIMEOUT_XMPP_READ_START tag:TAG_XMPP_READ_START];
+	[socket readDataWithTimeout:TIMEOUT_XMPP_READ_START andTag:TAG_XMPP_READ_START];
 }
 
 /**
@@ -3182,9 +3173,9 @@ enum XMPPStreamConfig
 		XMPPLogSend(@"SEND: %@", s1);
 		numberOfBytesSent += [outgoingData length];
 		
-		[asyncSocket writeData:outgoingData
-				   withTimeout:TIMEOUT_XMPP_WRITE
-						   tag:TAG_XMPP_WRITE_START];
+		[socket writeData:outgoingData
+				  withTag:TAG_XMPP_WRITE_START
+			   andTimeout:TIMEOUT_XMPP_WRITE];
 		
 		[self setDidStartNegotiation:YES];
 	}
@@ -3255,9 +3246,9 @@ enum XMPPStreamConfig
 	XMPPLogSend(@"SEND: %@", s2);
 	numberOfBytesSent += [outgoingData length];
 	
-	[asyncSocket writeData:outgoingData
-			   withTimeout:TIMEOUT_XMPP_WRITE
-					   tag:TAG_XMPP_WRITE_START];
+	[socket writeData:outgoingData
+			  withTag:TAG_XMPP_WRITE_START
+		   andTimeout:TIMEOUT_XMPP_WRITE];
 	
 	// Update status
 	state = STATE_XMPP_OPENING;
@@ -3346,7 +3337,7 @@ enum XMPPStreamConfig
 			}
 		}
 		
-		[asyncSocket startTLS:settings];
+		[socket startTLS:settings];
 		[self setIsSecure:YES];
 		
 		// Note: We don't need to wait for asyncSocket to complete TLS negotiation.
@@ -3359,7 +3350,7 @@ enum XMPPStreamConfig
 			
 			// We paused reading from the socket.
 			// We're ready to continue now.
-			[asyncSocket readDataWithTimeout:TIMEOUT_XMPP_READ_STREAM tag:TAG_XMPP_READ_STREAM];
+			[socket readDataWithTimeout:TIMEOUT_XMPP_READ_STREAM andTag:TAG_XMPP_READ_STREAM];
 		}
 		else
 		{
@@ -3529,8 +3520,7 @@ enum XMPPStreamConfig
 				// But we just reset the parser, so that code path isn't going to happen.
 				// So start read request here.
 				// The state is STATE_XMPP_OPENING, set via sendOpeningNegotiation method.
-				
-				[asyncSocket readDataWithTimeout:TIMEOUT_XMPP_READ_START tag:TAG_XMPP_READ_START];
+				[socket readDataWithTimeout:TIMEOUT_XMPP_READ_START andTag:TAG_XMPP_READ_START];
 			}
 		}
 		else
@@ -3659,7 +3649,7 @@ enum XMPPStreamConfig
 			// and the module requested we abort.
 			
 			otherError = bindError;
-			[asyncSocket disconnect];
+			[socket disconnect];
 		}
 		
 		customBinding = nil;
@@ -3703,7 +3693,7 @@ enum XMPPStreamConfig
 			// and the module requested we abort.
 			
 			otherError = bindError;
-			[asyncSocket disconnect];
+			[socket disconnect];
 		}
 		
 		customBinding = nil;
@@ -3735,9 +3725,9 @@ enum XMPPStreamConfig
 		XMPPLogSend(@"SEND: %@", outgoingStr);
 		numberOfBytesSent += [outgoingData length];
 		
-		[asyncSocket writeData:outgoingData
-				   withTimeout:TIMEOUT_XMPP_WRITE
-						   tag:TAG_XMPP_WRITE_STREAM];
+		[socket writeData:outgoingData
+				  withTag:TAG_XMPP_WRITE_STREAM
+			   andTimeout:TIMEOUT_XMPP_WRITE];
         
 		[idTracker addElement:iq
 		               target:nil
@@ -3759,9 +3749,9 @@ enum XMPPStreamConfig
 		XMPPLogSend(@"SEND: %@", outgoingStr);
 		numberOfBytesSent += [outgoingData length];
 		
-		[asyncSocket writeData:outgoingData
-				   withTimeout:TIMEOUT_XMPP_WRITE
-						   tag:TAG_XMPP_WRITE_STREAM];
+		[socket writeData:outgoingData
+				  withTag:TAG_XMPP_WRITE_STREAM
+			   andTimeout:TIMEOUT_XMPP_WRITE];
         
 		[idTracker addElement:iq
 		               target:nil
@@ -3888,9 +3878,9 @@ enum XMPPStreamConfig
 		XMPPLogSend(@"SEND: %@", outgoingStr);
 		numberOfBytesSent += [outgoingData length];
 		
-		[asyncSocket writeData:outgoingData
-		           withTimeout:TIMEOUT_XMPP_WRITE
-		                   tag:TAG_XMPP_WRITE_STREAM];
+		[socket writeData:outgoingData
+				  withTag:TAG_XMPP_WRITE_STREAM
+			   andTimeout:TIMEOUT_XMPP_WRITE];
         
         [idTracker addElement:iq
                        target:nil
@@ -3914,9 +3904,9 @@ enum XMPPStreamConfig
 		XMPPLogSend(@"SEND: %@", outgoingStr);
 		numberOfBytesSent += [outgoingData length];
 		
-		[asyncSocket writeData:outgoingData
-		           withTimeout:TIMEOUT_XMPP_WRITE
-		                   tag:TAG_XMPP_WRITE_STREAM];
+		[socket writeData:outgoingData
+				  withTag:TAG_XMPP_WRITE_STREAM
+			   andTimeout:TIMEOUT_XMPP_WRITE];
         
         [idTracker addElement:iq
                        target:nil
@@ -3955,9 +3945,9 @@ enum XMPPStreamConfig
 		XMPPLogSend(@"SEND: %@", outgoingStr);
 		numberOfBytesSent += [outgoingData length];
 		
-		[asyncSocket writeData:outgoingData
-				   withTimeout:TIMEOUT_XMPP_WRITE
-						   tag:TAG_XMPP_WRITE_STREAM];
+		[socket writeData:outgoingData
+				  withTag:TAG_XMPP_WRITE_STREAM
+			   andTimeout:TIMEOUT_XMPP_WRITE];
         
 		[idTracker addElement:iq
 		               target:nil
@@ -4082,14 +4072,13 @@ enum XMPPStreamConfig
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-#pragma mark AsyncSocket Delegate
+#pragma mark XMPPSocket Delegate
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 /**
  * Called when a socket connects and is ready for reading and writing. "host" will be an IP address, not a DNS name.
 **/
-- (void)socket:(GCDAsyncSocket *)sock didConnectToHost:(NSString *)host port:(UInt16)port
-{
+- (void)socket:(XMPPSocket *)socket didConnectToAddress:(NSData *)address {
 	// This method is invoked on the xmppQueue.
 	// 
 	// The TCP connection is now established.
@@ -4098,7 +4087,7 @@ enum XMPPStreamConfig
 	
     [self endConnectTimeout];
 	
-	[multicastDelegate xmppStreamSocketDidConnect:self toAddress:[self->asyncSocket connectedAddress]];
+	[multicastDelegate xmppStreamSocketDidConnect:self toAddress:address];
 	
 	srvResolver = nil;
 	srvResults = nil;
@@ -4115,45 +4104,7 @@ enum XMPPStreamConfig
 	}
 }
 
-- (void)socket:(GCDAsyncSocket *)sock didReceiveTrust:(SecTrustRef)trust
-                                    completionHandler:(void (^)(BOOL shouldTrustPeer))completionHandler
-{
-	XMPPLogTrace();
-	
-	SEL selector = @selector(xmppStream:didReceiveTrust:completionHandler:);
-	
-	if ([multicastDelegate hasDelegateThatRespondsToSelector:selector])
-	{
-		[multicastDelegate xmppStream:self didReceiveTrust:trust completionHandler:completionHandler];
-	}
-	else
-	{
-		XMPPLogWarn(@"%@: Stream secured with (GCDAsyncSocketManuallyEvaluateTrust == YES),"
-		            @" but there are no delegates that implement xmppStream:didReceiveTrust:completionHandler:."
-		            @" This is likely a mistake.", THIS_FILE);
-		
-		// The delegate method should likely have code similar to this,
-		// but will presumably perform some extra security code stuff.
-		// For example, allowing a specific self-signed certificate that is known to the app.
-		
-		dispatch_queue_t bgQueue = dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0);
-		dispatch_async(bgQueue, ^{
-			
-			SecTrustResultType result = kSecTrustResultDeny;
-			OSStatus status = SecTrustEvaluate(trust, &result);
-			
-			if (status == noErr && (result == kSecTrustResultProceed || result == kSecTrustResultUnspecified)) {
-				completionHandler(YES);
-			}
-			else {
-				completionHandler(NO);
-			}
-		});
-	}
-}
-
-- (void)socketDidSecure:(GCDAsyncSocket *)sock
-{
+- (void)socketDidSecureConnection:(XMPPSocket *)socket {
 	// This method is invoked on the xmppQueue.
 	
 	XMPPLogTrace();
@@ -4164,30 +4115,29 @@ enum XMPPStreamConfig
 /**
  * Called when a socket has completed reading the requested data. Not called if there is an error.
 **/
-- (void)socket:(GCDAsyncSocket *)sock didReadData:(NSData *)data withTag:(long)tag
-{
+- (void)socket:(XMPPSocket *)socket didReceiveMessage:(NSData *)message {
 	// This method is invoked on the xmppQueue.
 	
 	XMPPLogTrace();
 	
 	lastSendReceiveTime = [NSDate timeIntervalSinceReferenceDate];
-	numberOfBytesReceived += [data length];
+	numberOfBytesReceived += [message length];
 	
-	XMPPLogRecvPre(@"RECV: %@", [[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding]);
+	XMPPLogRecvPre(@"RECV: %@", [[NSString alloc] initWithData:message encoding:NSUTF8StringEncoding]);
 	
 	// Asynchronously parse the xml data
-	[parser parseData:data];
+	[parser parseData:message];
 	
 	if ([self isSecure])
 	{
 		// Continue reading for XML elements
 		if (state == STATE_XMPP_OPENING)
 		{
-			[asyncSocket readDataWithTimeout:TIMEOUT_XMPP_READ_START tag:TAG_XMPP_READ_START];
+			[socket readDataWithTimeout:TIMEOUT_XMPP_READ_START andTag:TAG_XMPP_READ_START];
 		}
 		else
 		{
-			[asyncSocket readDataWithTimeout:TIMEOUT_XMPP_READ_STREAM tag:TAG_XMPP_READ_STREAM];
+			[socket readDataWithTimeout:TIMEOUT_XMPP_READ_STREAM andTag:TAG_XMPP_READ_STREAM];
 		}
 	}
 	else
@@ -4200,8 +4150,7 @@ enum XMPPStreamConfig
 /**
  * Called after data with the given tag has been successfully sent.
 **/
-- (void)socket:(GCDAsyncSocket *)sock didWriteDataWithTag:(long)tag
-{
+- (void)socket:(XMPPSocket *)socket didWriteDataWithTag:(long)tag {
 	// This method is invoked on the xmppQueue.
 	
 	XMPPLogTrace();
@@ -4229,8 +4178,7 @@ enum XMPPStreamConfig
 /**
  * Called when a socket disconnects with or without error.
 **/
-- (void)socketDidDisconnect:(GCDAsyncSocket *)sock withError:(NSError *)err
-{
+- (void)socket:(XMPPSocket *)socket didDisconnectWithError:(NSError *)error {
 	// This method is invoked on the xmppQueue.
 	
 	XMPPLogTrace();
@@ -4297,7 +4245,7 @@ enum XMPPStreamConfig
 		}
 		else
 		{
-			[multicastDelegate xmppStreamDidDisconnect:self withError:err];
+			[multicastDelegate xmppStreamDidDisconnect:self withError:error];
 		}
 	}
 }
@@ -4354,9 +4302,9 @@ enum XMPPStreamConfig
 			XMPPLogSend(@"SEND: %@", outgoingStr);
 			numberOfBytesSent += [outgoingData length];
 			
-			[asyncSocket writeData:outgoingData
-			           withTimeout:TIMEOUT_XMPP_WRITE
-			                   tag:TAG_XMPP_WRITE_STREAM];
+			[socket writeData:outgoingData
+					  withTag:TAG_XMPP_WRITE_STREAM
+				   andTimeout:TIMEOUT_XMPP_WRITE];
 		}
 		
 		// Make sure the delegate didn't disconnect us in the xmppStream:willSendP2PFeatures: method.
@@ -4397,9 +4345,9 @@ enum XMPPStreamConfig
 			XMPPLogSend(@"SEND: %@", outgoingStr);
 			numberOfBytesSent += [outgoingData length];
 			
-			[asyncSocket writeData:outgoingData
-			           withTimeout:TIMEOUT_XMPP_WRITE
-			                   tag:TAG_XMPP_WRITE_STREAM];
+			[socket writeData:outgoingData
+					  withTag:TAG_XMPP_WRITE_STREAM
+				   andTimeout:TIMEOUT_XMPP_WRITE];
 			
 			// Now wait for the response IQ
 		}
@@ -4532,11 +4480,11 @@ enum XMPPStreamConfig
 		// Continue reading for XML elements
 		if (state == STATE_XMPP_OPENING)
 		{
-			[asyncSocket readDataWithTimeout:TIMEOUT_XMPP_READ_START tag:TAG_XMPP_READ_START];
+			[socket readDataWithTimeout:TIMEOUT_XMPP_READ_START andTag:TAG_XMPP_READ_START];
 		}
 		else if (state != STATE_XMPP_STARTTLS_2) // Don't queue read operation prior to [asyncSocket startTLS:]
 		{
-			[asyncSocket readDataWithTimeout:TIMEOUT_XMPP_READ_STREAM tag:TAG_XMPP_READ_STREAM];
+			[socket readDataWithTimeout:TIMEOUT_XMPP_READ_STREAM andTag:TAG_XMPP_READ_STREAM];
 		}
 	}
 }
@@ -4549,7 +4497,7 @@ enum XMPPStreamConfig
 	
 	XMPPLogTrace();
 	
-	[asyncSocket disconnect];
+	[socket disconnect];
 }
 
 - (void)xmppParser:(XMPPParser *)sender didFail:(NSError *)error
@@ -4561,7 +4509,7 @@ enum XMPPStreamConfig
 	XMPPLogTrace();
 	
 	parserError = error;
-	[asyncSocket disconnect];
+	[socket disconnect];
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -4628,9 +4576,9 @@ enum XMPPStreamConfig
 		{
 			numberOfBytesSent += [keepAliveData length];
 			
-			[asyncSocket writeData:keepAliveData
-			           withTimeout:TIMEOUT_XMPP_WRITE
-			                   tag:TAG_XMPP_WRITE_STREAM];
+			[socket writeData:keepAliveData
+					  withTag:TAG_XMPP_WRITE_STREAM
+				   andTimeout:TIMEOUT_XMPP_WRITE];
 			
 			// Force update the lastSendReceiveTime here just to be safe.
 			// 
@@ -4935,9 +4883,10 @@ enum XMPPStreamConfig
 }
 
 /** Allocates and configures a new socket */
-- (GCDAsyncSocket*) newSocket {
-    GCDAsyncSocket *socket = [[GCDAsyncSocket alloc] initWithDelegate:self delegateQueue:xmppQueue];
-    socket.IPv4PreferredOverIPv6 = !self.preferIPv6;
+- (XMPPSocket*) newSocket {
+	XMPPSocket *socket = [[XMPPSocket alloc] initWithProcessQueue:xmppQueue];
+	[socket setDelegate:self];
+	[socket setPreferIPv6:self.preferIPv6];
     return socket;
 }
 

@@ -71,6 +71,12 @@
 		788D476021A426BA009223B0 /* SocketRocket.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 788D475621A4268E009223B0 /* SocketRocket.framework */; };
 		788D476121A426C1009223B0 /* SocketRocket.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 788D475421A4268E009223B0 /* SocketRocket.framework */; };
 		788D476221A426C7009223B0 /* SocketRocket.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 788D475821A4268E009223B0 /* SocketRocket.framework */; };
+		78A3717621B0397300CD97E8 /* XMPPSocket.h in Headers */ = {isa = PBXBuildFile; fileRef = 78A3717421B0397300CD97E8 /* XMPPSocket.h */; };
+		78A3717721B0397300CD97E8 /* XMPPSocket.h in Headers */ = {isa = PBXBuildFile; fileRef = 78A3717421B0397300CD97E8 /* XMPPSocket.h */; };
+		78A3717821B0397300CD97E8 /* XMPPSocket.h in Headers */ = {isa = PBXBuildFile; fileRef = 78A3717421B0397300CD97E8 /* XMPPSocket.h */; };
+		78A3717921B0397300CD97E8 /* XMPPSocket.m in Sources */ = {isa = PBXBuildFile; fileRef = 78A3717521B0397300CD97E8 /* XMPPSocket.m */; };
+		78A3717A21B0397300CD97E8 /* XMPPSocket.m in Sources */ = {isa = PBXBuildFile; fileRef = 78A3717521B0397300CD97E8 /* XMPPSocket.m */; };
+		78A3717B21B0397300CD97E8 /* XMPPSocket.m in Sources */ = {isa = PBXBuildFile; fileRef = 78A3717521B0397300CD97E8 /* XMPPSocket.m */; };
 		D91D42431FD9DAC90064FD27 /* XMPPPresence+XEP_0319.swift in Sources */ = {isa = PBXBuildFile; fileRef = D91D42421FD9DAC90064FD27 /* XMPPPresence+XEP_0319.swift */; };
 		D91D42441FD9DAC90064FD27 /* XMPPPresence+XEP_0319.swift in Sources */ = {isa = PBXBuildFile; fileRef = D91D42421FD9DAC90064FD27 /* XMPPPresence+XEP_0319.swift */; };
 		D91D42451FD9DAC90064FD27 /* XMPPPresence+XEP_0319.swift in Sources */ = {isa = PBXBuildFile; fileRef = D91D42421FD9DAC90064FD27 /* XMPPPresence+XEP_0319.swift */; };
@@ -1557,6 +1563,8 @@
 		788D473C21A4268E009223B0 /* SocketRocket.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; name = SocketRocket.xcodeproj; path = Carthage/Checkouts/SocketRocket/SocketRocket.xcodeproj; sourceTree = "<group>"; };
 		788D476C21A45F06009223B0 /* Security.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Security.framework; path = System/Library/Frameworks/Security.framework; sourceTree = SDKROOT; };
 		788D478021A45F1C009223B0 /* libicucore.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = libicucore.tbd; path = usr/lib/libicucore.tbd; sourceTree = SDKROOT; };
+		78A3717421B0397300CD97E8 /* XMPPSocket.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = XMPPSocket.h; sourceTree = "<group>"; };
+		78A3717521B0397300CD97E8 /* XMPPSocket.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = XMPPSocket.m; sourceTree = "<group>"; };
 		D91D42421FD9DAC90064FD27 /* XMPPPresence+XEP_0319.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "XMPPPresence+XEP_0319.swift"; sourceTree = "<group>"; };
 		D91D42471FD9DCAA0064FD27 /* Date+XEP_0082.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Date+XEP_0082.swift"; sourceTree = "<group>"; };
 		D9268BAA1F9EB0BB009A37C7 /* XMPPMessage+XEP_0313.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "XMPPMessage+XEP_0313.h"; sourceTree = "<group>"; };
@@ -2009,6 +2017,8 @@
 				0D44BB0A1E5370ED000930E0 /* XMPPPresence.m */,
 				0D44BB0B1E5370ED000930E0 /* XMPPStream.h */,
 				0D44BB0C1E5370ED000930E0 /* XMPPStream.m */,
+				78A3717421B0397300CD97E8 /* XMPPSocket.h */,
+				78A3717521B0397300CD97E8 /* XMPPSocket.m */,
 			);
 			path = Core;
 			sourceTree = SOURCE_ROOT;
@@ -3221,6 +3231,7 @@
 				DD26F5701F7CD9B500F54F18 /* XMPPOneToOneChat.h in Headers */,
 				0D44BB211E5370ED000930E0 /* XMPPStream.h in Headers */,
 				0D44BB1F1E5370ED000930E0 /* XMPPPresence.h in Headers */,
+				78A3717621B0397300CD97E8 /* XMPPSocket.h in Headers */,
 				0D44BB191E5370ED000930E0 /* XMPPMessage.h in Headers */,
 				0D44BB161E5370ED000930E0 /* XMPPJID.h in Headers */,
 				0D44BB4C1E537105000930E0 /* XMPPDeprecatedPlainAuthentication.h in Headers */,
@@ -3418,6 +3429,7 @@
 				DD26F5711F7CD9B500F54F18 /* XMPPOneToOneChat.h in Headers */,
 				D9DCD51C1E6256D90010D1C7 /* XMPPStream.h in Headers */,
 				D9DCD51D1E6256D90010D1C7 /* XMPPPresence.h in Headers */,
+				78A3717721B0397300CD97E8 /* XMPPSocket.h in Headers */,
 				D9DCD51E1E6256D90010D1C7 /* XMPPMessage.h in Headers */,
 				D9DCD51F1E6256D90010D1C7 /* XMPPJID.h in Headers */,
 				D9DCD5201E6256D90010D1C7 /* XMPPDeprecatedPlainAuthentication.h in Headers */,
@@ -3591,6 +3603,7 @@
 				DD26F5721F7CD9B500F54F18 /* XMPPOneToOneChat.h in Headers */,
 				D9DCD67F1E6258CF0010D1C7 /* XMPPStream.h in Headers */,
 				D9DCD6801E6258CF0010D1C7 /* XMPPPresence.h in Headers */,
+				78A3717821B0397300CD97E8 /* XMPPSocket.h in Headers */,
 				D9DCD6811E6258CF0010D1C7 /* XMPPMessage.h in Headers */,
 				D9DCD6821E6258CF0010D1C7 /* XMPPJID.h in Headers */,
 				D9DCD6831E6258CF0010D1C7 /* XMPPDeprecatedPlainAuthentication.h in Headers */,
@@ -4185,6 +4198,7 @@
 				D9DCD2611E6250930010D1C7 /* OMEMOPreKey.m in Sources */,
 				D9DCD3071E6250930010D1C7 /* XMPPStreamManagement.m in Sources */,
 				D9DCD26F1E6250930010D1C7 /* XMPPResourceCoreDataStorageObject.m in Sources */,
+				78A3717921B0397300CD97E8 /* XMPPSocket.m in Sources */,
 				D9DCD28E1E6250930010D1C7 /* XMPPPrivacy.m in Sources */,
 				D9DCD2911E6250930010D1C7 /* XMPPRoomCoreDataStorage.m in Sources */,
 				D9DCD2591E6250930010D1C7 /* NSXMLElement+OMEMO.m in Sources */,
@@ -4403,6 +4417,7 @@
 				D9DCD4411E6256D90010D1C7 /* XMPPIQ.m in Sources */,
 				D9DCD4421E6256D90010D1C7 /* OMEMOPreKey.m in Sources */,
 				D9DCD4431E6256D90010D1C7 /* XMPPStreamManagement.m in Sources */,
+				78A3717A21B0397300CD97E8 /* XMPPSocket.m in Sources */,
 				D9DCD4441E6256D90010D1C7 /* XMPPResourceCoreDataStorageObject.m in Sources */,
 				D9DCD4451E6256D90010D1C7 /* XMPPPrivacy.m in Sources */,
 				D9DCD4461E6256D90010D1C7 /* XMPPRoomCoreDataStorage.m in Sources */,
@@ -4567,6 +4582,7 @@
 				D9DCD5A41E6258CF0010D1C7 /* XMPPIQ.m in Sources */,
 				D9DCD5A51E6258CF0010D1C7 /* OMEMOPreKey.m in Sources */,
 				D9DCD5A61E6258CF0010D1C7 /* XMPPStreamManagement.m in Sources */,
+				78A3717B21B0397300CD97E8 /* XMPPSocket.m in Sources */,
 				D9DCD5A71E6258CF0010D1C7 /* XMPPResourceCoreDataStorageObject.m in Sources */,
 				D9DCD5A81E6258CF0010D1C7 /* XMPPPrivacy.m in Sources */,
 				D9DCD5A91E6258CF0010D1C7 /* XMPPRoomCoreDataStorage.m in Sources */,

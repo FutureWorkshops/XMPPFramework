@@ -62,6 +62,14 @@ extern const NSTimeInterval XMPPStreamTimeoutNone;
 **/
 - (instancetype)initP2PFrom:(XMPPJID *)myJID;
 
+
+/**
+ This pass to the stream a set of SSL certificates to allow the stream to pin the certificates
+
+ @param certificates Array of NSData representations of .cer files
+ */
+- (void) setSSLCertificates:(NSArray<NSData *> *)certificates;
+
 /**
  * XMPPStream uses a multicast delegate.
  * This allows one to add multiple delegates to a single XMPPStream instance,
