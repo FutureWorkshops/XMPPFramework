@@ -262,17 +262,6 @@ extern const NSTimeInterval XMPPStreamTimeoutNone;
 **/
 @property (readwrite, assign) BOOL validatesResponses;
 
-#if TARGET_OS_IPHONE
-
-/**
- * If set, the kCFStreamNetworkServiceTypeVoIP flags will be set on the underlying CFRead/Write streams.
- * 
- * The default value is NO.
-**/
-@property (readwrite, assign) BOOL enableBackgroundingOnSocket DEPRECATED_MSG_ATTRIBUTE("Background sockets are no longer available on iOS 10. You must use PushKit and the XEP-0357 module instead.");
-
-#endif
-
 /**
  * By default, IPv6 is now preferred over IPv4 to satisfy Apple's June 2016
  * DNS64/NAT64 requirements for app approval. Disabling this option may cause

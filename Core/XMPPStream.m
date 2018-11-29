@@ -5,7 +5,7 @@
 #import "XMPPIDTracker.h"
 #import "XMPPSRVResolver.h"
 #import "NSData+XMPP.h"
-//TODO: Remove the TCP Socket from this class
+@import SocketRocket;
 @import CocoaAsyncSocket;
 #import <objc/runtime.h>
 #import <libkern/OSAtomic.h>
@@ -66,9 +66,6 @@ enum XMPPStreamConfig
 {
 	kP2PMode                      = 1 << 0,  // If set, the XMPPStream was initialized in P2P mode
 	kResetByteCountPerConnection  = 1 << 1,  // If set, byte count should be reset per connection
-#if TARGET_OS_IPHONE
-	kEnableBackgroundingOnSocket  = 1 << 2,  // If set, the VoIP flag should be set on the socket
-#endif
 };
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -95,6 +92,8 @@ enum XMPPStreamConfig
 	XMPPStreamState state;
 	
 	GCDAsyncSocket *asyncSocket;
+	
+	SRWebSocket *webSocket;
 	
 	uint64_t numberOfBytesSent;
 	uint64_t numberOfBytesReceived;
@@ -752,41 +751,6 @@ enum XMPPStreamConfig
     else
         dispatch_async(xmppQueue, block);
 }
-
-#if TARGET_OS_IPHONE
-
-- (BOOL)enableBackgroundingOnSocket
-{
-	__block BOOL result = NO;
-	
-	dispatch_block_t block = ^{
-		result = (self->config & kEnableBackgroundingOnSocket) ? YES : NO;
-	};
-	
-	if (dispatch_get_specific(xmppQueueTag))
-		block();
-	else
-		dispatch_sync(xmppQueue, block);
-	
-	return result;
-}
-
-- (void)setEnableBackgroundingOnSocket:(BOOL)flag
-{
-	dispatch_block_t block = ^{
-		if (flag)
-			self->config |= kEnableBackgroundingOnSocket;
-		else
-			self->config &= ~kEnableBackgroundingOnSocket;
-	};
-	
-	if (dispatch_get_specific(xmppQueueTag))
-		block();
-	else
-		dispatch_async(xmppQueue, block);
-}
-
-#endif
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #pragma mark Configuration
@@ -4131,29 +4095,8 @@ enum XMPPStreamConfig
 	// The TCP connection is now established.
 	
 	XMPPLogTrace();
-    
-    [self endConnectTimeout];
 	
-	#if TARGET_OS_IPHONE
-	{
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
-        if (self.enableBackgroundingOnSocket)
-#pragma clang diagnostic pop
-		{
-			__block BOOL result;
-			
-			[asyncSocket performBlock:^{
-				result = [self->asyncSocket enableBackgroundingOnSocket];
-			}];
-			
-			if (result)
-				XMPPLogVerbose(@"%@: Enabled backgrounding on socket", THIS_FILE);
-			else
-				XMPPLogError(@"%@: Error enabling backgrounding on socket!", THIS_FILE);
-		}
-	}
-	#endif
+    [self endConnectTimeout];
 	
 	[multicastDelegate xmppStreamSocketDidConnect:self toAddress:[self->asyncSocket connectedAddress]];
 	
