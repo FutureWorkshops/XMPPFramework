@@ -19,6 +19,7 @@
 @property (nonatomic, assign) BOOL isP2P;
 @property (nonatomic, assign) dispatch_queue_t processQueue;
 @property (nonatomic, strong, nullable) XMPPSSLPinning *sslPining;
+@property (nonatomic, assign) BOOL shouldDisconnectAfterWritting;
 
 @end
 
@@ -35,6 +36,8 @@
 - (void) disconnectAfterWriting {
     if (self.isP2P) {
         [self.tcpSocket disconnectAfterWriting];
+    } else {
+        self.shouldDisconnectAfterWritting = YES;
     }
 }
 
