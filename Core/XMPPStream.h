@@ -6,9 +6,6 @@
 
 @import KissXML;
 
-//TODO: Remove the TCP Socket from this class
-@import CocoaAsyncSocket;
-
 NS_ASSUME_NONNULL_BEGIN
 
 @class XMPPSRVResolver;
@@ -48,7 +45,7 @@ typedef NS_ENUM(NSUInteger, XMPPStreamStartTLSPolicy) {
 
 extern const NSTimeInterval XMPPStreamTimeoutNone;
 
-@interface XMPPStream : NSObject <GCDAsyncSocketDelegate>
+@interface XMPPStream : NSObject
 
 /**
  * Standard XMPP initialization.
@@ -354,15 +351,6 @@ extern const NSTimeInterval XMPPStreamTimeoutNone;
       withAddress:(NSData *)remoteAddr
       withTimeout:(NSTimeInterval)timeout
             error:(NSError **)errPtr;
-
-/**
- * Starts a P2P connection with the given accepted socket.
- * This method only works with XMPPStream objects created using the initP2P method.
- * 
- * The given socket should be a socket that has already been accepted.
- * The remoteJID will be extracted from the opening stream negotiation.
-**/
-- (BOOL)connectP2PWithSocket:(GCDAsyncSocket *)acceptedSocket error:(NSError **)errPtr;
 
 /**
  * Aborts any in-progress connection attempt. Has no effect if the stream is already connected or disconnected.
@@ -809,7 +797,7 @@ extern const NSTimeInterval XMPPStreamTimeoutNone;
  * If developing an iOS app that runs in the background,
  * please use XMPPStream's enableBackgroundingOnSocket property as opposed to doing it directly on the socket here.
 **/
-- (void)xmppStream:(XMPPStream *)sender socketDidConnect:(GCDAsyncSocket *)socket;
+- (void)xmppStreamSocketDidConnect:(XMPPStream *)sender toAddress:(NSData *)address;
 
 /**
  * This method is called after a TCP connection has been established with the server,

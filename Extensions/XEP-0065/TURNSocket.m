@@ -1502,9 +1502,9 @@ static NSMutableArray *proxyCandidates;
 	
 	dispatch_async(delegateQueue, ^{ @autoreleasepool {
 		
-		if ([self->delegate respondsToSelector:@selector(turnSocket:didSucceed:)])
+		if ([self->delegate respondsToSelector:@selector(turnSocketDidSucceed:)])
 		{
-			[self->delegate turnSocket:self didSucceed:self->asyncSocket];
+			[self->delegate turnSocketDidSucceed:self];
 		}
 	}});
 	

@@ -411,24 +411,20 @@
 #pragma mark XMPPStream Delegate
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-//TODO: Refactor the Delegate to see if the socket is really necessary
-
-- (void)xmppStream:(XMPPStream *)sender socketDidConnect:(GCDAsyncSocket *)socket
+- (void)xmppStreamSocketDidConnect:(XMPPStream *)sender toAddress:(NSData *)address
 {
-	NSData *currentServerAddress = [socket connectedAddress];
-	
 	if (lastServerAddress == nil)
 	{
-		self.lastServerAddress = currentServerAddress;
+		self.lastServerAddress = address;
 	}
-	else if (![lastServerAddress isEqualToData:currentServerAddress])
+	else if (![lastServerAddress isEqualToData:address])
 	{
 		XMPPLogInfo(@"%@: Connected to a different server. Resetting calibration info.", [self class]);
 		
 		lastCalibrationTime = DISPATCH_TIME_FOREVER;
 		timeDifference = 0.0;
 		
-		self.lastServerAddress = currentServerAddress;
+		self.lastServerAddress = address;
 	}
 }
 

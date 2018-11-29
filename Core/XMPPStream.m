@@ -5,7 +5,8 @@
 #import "XMPPIDTracker.h"
 #import "XMPPSRVResolver.h"
 #import "NSData+XMPP.h"
-
+//TODO: Remove the TCP Socket from this class
+@import CocoaAsyncSocket;
 #import <objc/runtime.h>
 #import <libkern/OSAtomic.h>
 
@@ -74,7 +75,7 @@ enum XMPPStreamConfig
 #pragma mark -
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-@interface XMPPStream () <XMPPSRVResolverDelegate>
+@interface XMPPStream () <XMPPSRVResolverDelegate, GCDAsyncSocketDelegate>
 {
 	dispatch_queue_t xmppQueue;
 	void *xmppQueueTag;
@@ -160,7 +161,6 @@ enum XMPPStreamConfig
 @implementation XMPPStream
 
 @synthesize tag = userTag;
-@synthesize asyncSocket = asyncSocket;
 
 /**
  * Shared initialization between the various init methods.
@@ -1313,91 +1313,6 @@ enum XMPPStreamConfig
 		*errPtr = err;
 	
 	return result;
-}
-
-/**
- * Starts a P2P connection with the given accepted socket.
- * This method only works with XMPPStream objects created using the initP2P method.
- * 
- * The given socket should be a socket that has already been accepted.
- * The remoteJID will be extracted from the opening stream negotiation.
-**/
-- (BOOL)connectP2PWithSocket:(GCDAsyncSocket *)acceptedSocket error:(NSError **)errPtr
-{
-	XMPPLogTrace();
-	
-	__block BOOL result = YES;
-	__block NSError *err = nil;
-	
-	dispatch_block_t block = ^{ @autoreleasepool {
-		
-		if (self->state != STATE_XMPP_DISCONNECTED)
-		{
-			NSString *errMsg = @"Attempting to connect while already connected or connecting.";
-			NSDictionary *info = @{NSLocalizedDescriptionKey : errMsg};
-			
-			err = [NSError errorWithDomain:XMPPStreamErrorDomain code:XMPPStreamInvalidState userInfo:info];
-			
-			result = NO;
-			return_from_block;
-		}
-		
-		if (![self isP2P])
-		{
-			NSString *errMsg = @"Non P2P streams must use the connect: method";
-			NSDictionary *info = @{NSLocalizedDescriptionKey : errMsg};
-			
-			err = [NSError errorWithDomain:XMPPStreamErrorDomain code:XMPPStreamInvalidType userInfo:info];
-			
-			result = NO;
-			return_from_block;
-		}
-		
-		if (acceptedSocket == nil)
-		{
-			NSString *errMsg = @"Parameter acceptedSocket is nil.";
-			NSDictionary *info = @{NSLocalizedDescriptionKey : errMsg};
-			
-			err = [NSError errorWithDomain:XMPPStreamErrorDomain code:XMPPStreamInvalidParameter userInfo:info];
-			
-			result = NO;
-			return_from_block;
-		}
-		
-		// Turn off P2P initiator flag
-		self->flags &= ~kP2PInitiator;
-		
-		NSAssert((self->asyncSocket == nil), @"Forgot to release the previous asyncSocket instance.");
-		
-		// Store and configure socket
-		self->asyncSocket = acceptedSocket;
-		[self->asyncSocket setDelegate:self delegateQueue:self->xmppQueue];
-		
-		// Notify delegates
-		[self->multicastDelegate xmppStream:self socketDidConnect:self->asyncSocket];
-
-		// Update state
-		self->state = STATE_XMPP_CONNECTING;
-		
-		if ([self resetByteCountPerConnection])
-		{
-			self->numberOfBytesSent = 0;
-			self->numberOfBytesReceived = 0;
-		}
-		
-		// Start the XML stream
-		[self startNegotiation];
-	}};
-	
-	if (dispatch_get_specific(xmppQueueTag))
-		block();
-	else
-		dispatch_sync(xmppQueue, block);
-	
-	if (errPtr)
-		*errPtr = err;
-	
-    return result;
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -4240,7 +4155,7 @@ enum XMPPStreamConfig
 	}
 	#endif
 	
-	[multicastDelegate xmppStream:self socketDidConnect:sock];
+	[multicastDelegate xmppStreamSocketDidConnect:self toAddress:[self->asyncSocket connectedAddress]];
 	
 	srvResolver = nil;
 	srvResults = nil;

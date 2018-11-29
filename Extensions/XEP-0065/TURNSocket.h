@@ -4,7 +4,6 @@
 @class XMPPJID;
 @class XMPPStream;
 
-//TODO: Remove the TCP Socket from this class
 @import CocoaAsyncSocket;
 @protocol TURNSocketDelegate;
 
@@ -39,7 +38,7 @@ NS_ASSUME_NONNULL_BEGIN
 @protocol TURNSocketDelegate
 @optional
 
-- (void)turnSocket:(TURNSocket *)sender didSucceed:(GCDAsyncSocket *)socket;
+- (void)turnSocketDidSucceed:(TURNSocket *)sender;
 
 - (void)turnSocketDidFail:(TURNSocket *)sender;
 
