@@ -50,6 +50,14 @@
 // Define the timeouts (in seconds) for SRV
 #define TIMEOUT_SRV_RESOLUTION 30.0
 
+#define XMPP_FEATURE_KEY (self->socket.isTCPSocket?@"stream:features":@"features")
+
+#define TCP_CONNECTION_HEADER_KEY @"stream:stream"
+#define WS_CONNECTION_HEADER_KEY @"open"
+
+#define TCP_CLOSURE_HEADER_KEY @"stream:stream"
+#define WS_CLOSURE_HEADER_KEY @"close"
+
 NSString *const XMPPStreamDidChangeMyJIDNotification = @"XMPPStreamDidChangeMyJID";
 
 const NSTimeInterval XMPPStreamTimeoutNone = -1;
@@ -1034,8 +1042,8 @@ enum XMPPStreamConfig
 	
 	//For now, the error pointer will be kept to keep public interface
 	errPtr = nil;
-	
-	[socket connectToHost:host onPort:port];
+
+	[socket connectToHost:host onPort:port path:self.webSocketPath protocol:@"xmpp"];
 	
 	if ([self resetByteCountPerConnection])
 	{
@@ -1374,7 +1382,7 @@ enum XMPPStreamConfig
 			}
 			else
 			{
-				NSString *termStr = @"</stream:stream>";
+				NSString *termStr = (self->socket.isTCPSocket ? TCP_CLOSURE_HEADER_KEY : WS_CLOSURE_HEADER_KEY);
 				NSData *termData = [termStr dataUsingEncoding:NSUTF8StringEncoding];
 				
 				XMPPLogSend(@"SEND: %@", termStr);
@@ -1445,7 +1453,7 @@ enum XMPPStreamConfig
 		// stream:features are received, and TLS has been setup (if required)
 		if (self->state >= STATE_XMPP_POST_NEGOTIATION)
 		{
-			NSXMLElement *features = [self->rootElement elementForName:@"stream:features"];
+			NSXMLElement *features = [self->rootElement elementForName:XMPP_FEATURE_KEY];
 			NSXMLElement *starttls = [features elementForName:@"starttls" xmlns:@"urn:ietf:params:xml:ns:xmpp-tls"];
 			
 			result = (starttls != nil);
@@ -1561,7 +1569,7 @@ enum XMPPStreamConfig
 		// stream:features are received, and TLS has been setup (if required)
 		if (self->state >= STATE_XMPP_POST_NEGOTIATION)
 		{
-			NSXMLElement *features = [self->rootElement elementForName:@"stream:features"];
+			NSXMLElement *features = [self->rootElement elementForName:XMPP_FEATURE_KEY];
 			NSXMLElement *reg = [features elementForName:@"register" xmlns:@"http://jabber.org/features/iq-register"];
 			
 			result = (reg != nil);
@@ -1712,7 +1720,7 @@ enum XMPPStreamConfig
 		
 		if (self->state >= STATE_XMPP_POST_NEGOTIATION)
 		{
-			NSXMLElement *features = [self->rootElement elementForName:@"stream:features"];
+			NSXMLElement *features = [self->rootElement elementForName:XMPP_FEATURE_KEY];
 			NSXMLElement *mech = [features elementForName:@"mechanisms" xmlns:@"urn:ietf:params:xml:ns:xmpp-sasl"];
 			
 			NSArray *mechanisms = [mech elementsForName:@"mechanism"];
@@ -1749,7 +1757,7 @@ enum XMPPStreamConfig
 		
 		if (self->state >= STATE_XMPP_POST_NEGOTIATION)
 		{
-			NSXMLElement *features = [self->rootElement elementForName:@"stream:features"];
+			NSXMLElement *features = [self->rootElement elementForName:XMPP_FEATURE_KEY];
 			NSXMLElement *mech = [features elementForName:@"mechanisms" xmlns:@"urn:ietf:params:xml:ns:xmpp-sasl"];
 			
 			NSArray *mechanisms = [mech elementsForName:@"mechanism"];
@@ -2017,7 +2025,7 @@ enum XMPPStreamConfig
 		
 		if (self->state >= STATE_XMPP_POST_NEGOTIATION)
 		{
-			NSXMLElement *features = [self->rootElement elementForName:@"stream:features"];
+			NSXMLElement *features = [self->rootElement elementForName:XMPP_FEATURE_KEY];
 			NSXMLElement *compression = [features elementForName:@"compression" xmlns:@"http://jabber.org/features/compress"];
 			
 			NSArray *methods = [compression elementsForName:@"method"];
@@ -2054,7 +2062,7 @@ enum XMPPStreamConfig
 		
 		if (self->state >= STATE_XMPP_POST_NEGOTIATION)
 		{
-			NSXMLElement *features = [self->rootElement elementForName:@"stream:features"];
+			NSXMLElement *features = [self->rootElement elementForName:XMPP_FEATURE_KEY];
 			NSXMLElement *compression = [features elementForName:@"compression" xmlns:@"http://jabber.org/features/compress"];
 			
 			NSArray *methods = [compression elementsForName:@"method"];
@@ -3168,7 +3176,7 @@ enum XMPPStreamConfig
 	
 	XMPPLogTrace();
 	
-	if (![self didStartNegotiation])
+	if (![self didStartNegotiation] && self->socket.isTCPSocket)
 	{
 		// TCP connection was just opened - We need to include the opening XML stanza
 		NSString *s1 = @"<?xml version='1.0'?>";
@@ -3182,6 +3190,8 @@ enum XMPPStreamConfig
 				  withTag:TAG_XMPP_WRITE_START
 			   andTimeout:TIMEOUT_XMPP_WRITE];
 		
+		[self setDidStartNegotiation:YES];
+	} else if (![self didStartNegotiation]) {
 		[self setDidStartNegotiation:YES];
 	}
 	
@@ -3200,49 +3210,61 @@ enum XMPPStreamConfig
 		parser = [[XMPPParser alloc] initWithDelegate:self delegateQueue:xmppQueue];
 	}
 	
-	NSString *xmlns = @"jabber:client";
-	NSString *xmlns_stream = @"http://etherx.jabber.org/streams";
+	NSString *headerKey;
+	NSString *closureMark;
+	NSString *xmlnsString;
+	if (socket.isTCPSocket) {
+		headerKey = TCP_CONNECTION_HEADER_KEY;
+		closureMark = @">";
+		xmlnsString = @"xmlns='jabber:client' xmlns:stream='http://etherx.jabber.org/streams'";
+	} else {
+		headerKey = WS_CONNECTION_HEADER_KEY;
+		closureMark = @"/>";
+		xmlnsString = @"xmlns='urn:ietf:params:xml:ns:xmpp-framing'";
+	}
+	
+	
 	
 	NSString *temp, *s2;
     if ([self isP2P])
     {
 		if (myJID_setByClient && remoteJID)
 		{
-			temp = @"<stream:stream xmlns='%@' xmlns:stream='%@' version='1.0' from='%@' to='%@'>";
-			s2 = [NSString stringWithFormat:temp, xmlns, xmlns_stream, [myJID_setByClient bare], [remoteJID bare]];
+			temp = @"<%@ %@ version='1.0' from='%@' to='%@'%@";
+			s2 = [NSString stringWithFormat:temp, headerKey, xmlnsString, [myJID_setByClient bare], [remoteJID bare], closureMark];
 		}
 		else if (myJID_setByClient)
 		{
-			temp = @"<stream:stream xmlns='%@' xmlns:stream='%@' version='1.0' from='%@'>";
-			s2 = [NSString stringWithFormat:temp, xmlns, xmlns_stream, [myJID_setByClient bare]];
+			temp = @"<%@ %@ version='1.0' from='%@'%@";
+			s2 = [NSString stringWithFormat:temp, headerKey, xmlnsString, [myJID_setByClient bare], closureMark];
 		}
 		else if (remoteJID)
 		{
-			temp = @"<stream:stream xmlns='%@' xmlns:stream='%@' version='1.0' to='%@'>";
-			s2 = [NSString stringWithFormat:temp, xmlns, xmlns_stream, [remoteJID bare]];
+			temp = @"<%@ %@ version='1.0' to='%@'%@";
+			s2 = [NSString stringWithFormat:temp, headerKey, xmlnsString, [remoteJID bare], closureMark];
 		}
 		else
 		{
-			temp = @"<stream:stream xmlns='%@' xmlns:stream='%@' version='1.0'>";
-			s2 = [NSString stringWithFormat:temp, xmlns, xmlns_stream];
+			temp = @"<%@ %@ version='1.0'%@";
+			s2 = [NSString stringWithFormat:temp, headerKey, xmlnsString, closureMark];
 		}
     }
     else
     {
 		if (myJID_setByClient)
 		{
-			temp = @"<stream:stream xmlns='%@' xmlns:stream='%@' version='1.0' to='%@'>";
-            s2 = [NSString stringWithFormat:temp, xmlns, xmlns_stream, [myJID_setByClient domain]];
+			temp = @"<%@ %@ version='1.0' to='%@'%@";
+            s2 = [NSString stringWithFormat:temp, headerKey, xmlnsString, [myJID_setByClient domain], closureMark];
 		}
         else if ([hostName length] > 0)
         {
-            temp = @"<stream:stream xmlns='%@' xmlns:stream='%@' version='1.0' to='%@'>";
-            s2 = [NSString stringWithFormat:temp, xmlns, xmlns_stream, hostName];
+            temp = @"<%@ %@ version='1.0' to='%@'%@";
+            s2 = [NSString stringWithFormat:temp, headerKey, xmlnsString, hostName, closureMark];
         }
         else
         {
-            temp = @"<stream:stream xmlns='%@' xmlns:stream='%@' version='1.0'>";
-            s2 = [NSString stringWithFormat:temp, xmlns, xmlns_stream];
+            temp = @"<%@ %@ version='1.0'%@";
+            s2 = [NSString stringWithFormat:temp, headerKey, xmlnsString, closureMark];
         }
     }
 	
@@ -3376,7 +3398,7 @@ enum XMPPStreamConfig
 	XMPPLogTrace();
 	
 	// Extract the stream features
-	NSXMLElement *features = [rootElement elementForName:@"stream:features"];
+	NSXMLElement *features = [rootElement elementForName:XMPP_FEATURE_KEY];
 	
 	// Check to see if TLS is required
 	// Don't forget about that NSXMLElement bug you reported to apple (xmlns is required or element won't be found)
@@ -3927,7 +3949,7 @@ enum XMPPStreamConfig
 	XMPPLogTrace();
 	
 	// And we may now have to do one last thing before we're ready - start an IM session
-	NSXMLElement *features = [rootElement elementForName:@"stream:features"];
+	NSXMLElement *features = [rootElement elementForName:XMPP_FEATURE_KEY];
 	
 	// Check to see if a session is required
 	// Don't forget about that NSXMLElement bug you reported to apple (xmlns is required or element won't be found)
@@ -4297,7 +4319,7 @@ enum XMPPStreamConfig
 			// Send our stream features.
 			// To do so we need to ask the delegate to fill it out for us.
 			
-			NSXMLElement *streamFeatures = [NSXMLElement elementWithName:@"stream:features"];
+			NSXMLElement *streamFeatures = [NSXMLElement elementWithName:XMPP_FEATURE_KEY];
 			
 			[multicastDelegate xmppStream:self willSendP2PFeatures:streamFeatures];
 			
@@ -4579,11 +4601,8 @@ enum XMPPStreamConfig
 		
 		if (elapsed < 0 || elapsed >= keepAliveInterval)
 		{
-			numberOfBytesSent += [keepAliveData length];
-			
-			[socket writeData:keepAliveData
-					  withTag:TAG_XMPP_WRITE_STREAM
-				   andTimeout:TIMEOUT_XMPP_WRITE];
+			numberOfBytesSent += [socket sendKeepAliveDataTithTag:TAG_XMPP_WRITE_STREAM
+													   andTimeout:TIMEOUT_XMPP_WRITE];
 			
 			// Force update the lastSendReceiveTime here just to be safe.
 			// 

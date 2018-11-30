@@ -130,6 +130,15 @@ extern const NSTimeInterval XMPPStreamTimeoutNone;
 **/
 @property (readwrite, assign) UInt16 hostPort;
 
+
+/**
+ * This allows the user to specify an extra path to the WebSocket connection.
+ * For example, on an ejaberd connection, the user may add /ws-xmpp to complete the path URL.
+ *
+ * The default value is nil
+ */
+@property (readwrite, copy, nullable) NSString *webSocketPath;
+
 /**
  * The stream's policy on when to Start TLS.
  *

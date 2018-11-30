@@ -16,7 +16,6 @@
 
 @property (nonatomic, strong) GCDAsyncSocket *tcpSocket;
 @property (nonatomic, strong) SRWebSocket *webSocket;
-@property (nonatomic, assign) BOOL isTCPSocket;
 @property (nonatomic, assign) dispatch_queue_t processQueue;
 @property (nonatomic, strong, nullable) XMPPSSLPinning *sslPining;
 @property (nonatomic, assign) BOOL shouldDisconnectAfterWritting;
@@ -24,6 +23,8 @@
 @end
 
 @implementation XMPPSocket
+
+@synthesize isTCPSocket = _isTCPSocket;
 
 - (instancetype) initWithProcessQueue:(dispatch_queue_t)processQueue {
     return [self initWithProcessQueue:processQueue asTCPSocket:NO];
@@ -60,11 +61,11 @@
     }
 }
 
-- (void) connectToHost:(NSString *)host onPort:(NSUInteger)port {
+- (void) connectToHost:(NSString *)host onPort:(NSUInteger)port path:(NSString * _Nullable)path protocol:(NSString * _Nullable)protocol {
     [self disconnect];
     
     if (!self.isTCPSocket) {
-        self.webSocket = [self _newWebSocketConnectToHost:host onPort:port];
+        self.webSocket = [self _newWebSocketConnectToHost:host onPort:port path:path protocol:protocol];
         [self.webSocket open];
         return;
     }
@@ -85,7 +86,7 @@
 
 - (BOOL) connectToP2POnAddress:(NSData *)address error:(NSError * _Nullable __autoreleasing *)error {
     [self disconnect];
-    self.isTCPSocket = YES;
+    self->_isTCPSocket = YES;
     if (self.tcpSocket == nil) {
         self.tcpSocket = [self _newTCPSocket];
     }
@@ -97,7 +98,19 @@
         [self.tcpSocket writeData:data withTimeout:timeout tag:tag];
     } else {
         [self.webSocket send:data];
+        [self.delegate socket:self didWriteDataWithTag:tag];
     }
+}
+
+- (NSUInteger) sendKeepAliveDataTithTag:(long)tag andTimeout:(NSTimeInterval)timeout {
+    
+    if (!self.isTCPSocket) {
+        return 0;
+    }
+    
+    NSData *keepAliveData = [@" " dataUsingEncoding:NSUTF8StringEncoding];
+    [self writeData:keepAliveData withTag:tag andTimeout:timeout];
+    return [keepAliveData length];
 }
 
 - (void) readDataWithTimeout:(NSTimeInterval)timeout andTag:(long)tag {
@@ -135,17 +148,22 @@
     return socket;
 }
 
-- (SRWebSocket *) _newWebSocketConnectToHost:(NSString *)host onPort:(NSUInteger)port {
-    NSURLComponents *components = [[NSURLComponents alloc] initWithString:host];
+- (SRWebSocket *) _newWebSocketConnectToHost:(NSString *)host onPort:(NSUInteger)port path:(NSString * _Nullable)path protocol:(NSString * _Nullable)protocol {
+    
+    NSURLComponents *components = [[NSURLComponents alloc] init];
     [components setPort:@(port)];
-    if (![components.scheme isEqualToString:@"ws"] && ![components.scheme isEqualToString:@"wss"]) {
-        [components setScheme:@"wss"];
+    [components setScheme:(self.sslPining == nil || self.sslPining.sslCertificates.count == 0 ? @"ws" : @"wss")];
+    [components setHost:host];
+    if (path != nil) {
+        [components setPath:path];
     }
     
     NSMutableURLRequest *urlRequest = [[NSMutableURLRequest alloc] initWithURL:[components URL]];
     [urlRequest setSR_SSLPinnedCertificates:self.sslPining.sslCertificates ?: @[]];
     
-    SRWebSocket *webSocket = [[SRWebSocket alloc] initWithURLRequest:urlRequest protocols:nil allowsUntrustedSSLCertificates:NO];
+    SRWebSocket *webSocket = [[SRWebSocket alloc] initWithURLRequest:urlRequest
+                                                           protocols:(protocol == nil ? @[] : @[protocol])
+                                      allowsUntrustedSSLCertificates:NO];
     [webSocket setDelegate:self];
     [webSocket setDelegateDispatchQueue:self.processQueue];
     return webSocket;

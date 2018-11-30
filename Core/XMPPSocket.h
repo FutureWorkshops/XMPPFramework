@@ -19,6 +19,7 @@ NS_ASSUME_NONNULL_BEGIN
 
 @property (nonatomic, assign) BOOL preferIPv6;
 @property (nonatomic, weak, nullable) id<XMPPSocketDelegate> delegate;
+@property (nonatomic, readonly, assign) BOOL isTCPSocket;
 
 - (instancetype)init NS_UNAVAILABLE;
 - (instancetype)initWithProcessQueue:(dispatch_queue_t)processQueue;
@@ -28,8 +29,9 @@ NS_ASSUME_NONNULL_BEGIN
 - (void) startTLS:(NSDictionary * _Nullable)configuration;
 - (void) setSSLCertificates:(NSArray<NSData *> * _Nullable)certificates;
 - (BOOL) connectToP2POnAddress:(NSData *)address error:(NSError * _Nullable __autoreleasing *)error NS_SWIFT_NAME(connectToP2P(address:));
-- (void) connectToHost:(NSString *)host onPort:(NSUInteger)port NS_SWIFT_NAME(connect(host:port:));
+- (void) connectToHost:(NSString *)host onPort:(NSUInteger)port path:(NSString * _Nullable)path protocol:(NSString * _Nullable)protocol NS_SWIFT_NAME(connect(host:port:path:protocol:));
 - (void) writeData:(NSData *)data withTag:(long)tag andTimeout:(NSTimeInterval)timeout NS_SWIFT_NAME(write(_:tag:timeout:));
+- (NSUInteger) sendKeepAliveDataTithTag:(long)tag andTimeout:(NSTimeInterval)timeout;
 - (void) readDataWithTimeout:(NSTimeInterval)timeout andTag:(long)tag NS_SWIFT_NAME(readData(timeout:tag:));
 - (void) disconnect;
 
