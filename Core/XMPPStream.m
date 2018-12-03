@@ -211,7 +211,7 @@ enum XMPPStreamConfig
 **/
 - (id)init
 {
-	return [self initAsTCPSocket:NO];
+	return [self initAsTCPSocket:YES];
 }
 
 - (instancetype)initAsTCPSocket:(BOOL)tcpSocket

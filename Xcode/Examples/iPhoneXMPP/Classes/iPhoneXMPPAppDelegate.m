@@ -104,7 +104,7 @@
 	// The XMPPStream is the base class for all activity.
 	// Everything else plugs into the xmppStream, such as modules/extensions and delegates.
 
-	xmppStream = [[XMPPStream alloc] initAsTCPSocket:YES];
+	xmppStream = [[XMPPStream alloc] init];
 	
 	// Setup reconnect
 	// 
