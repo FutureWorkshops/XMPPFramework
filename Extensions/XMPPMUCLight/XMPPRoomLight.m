@@ -241,7 +241,11 @@ static NSString *const XMPPRoomLightDestroy = @"urn:xmpp:muclight:0#destroy";
 	[self setMemberListVersion:@""];
 }
 
-- (void)createRoomLightWithMembersJID:(nullable NSArray<XMPPJID *> *) members{
+- (void)createRoomLightWithMembersJID:(nullable NSArray<XMPPJID *> *)members {
+	[self createRoomLightWithMembersJID:members withConfiguration:@[]];
+}
+
+- (void)createRoomLightWithMembersJID:(nullable NSArray<XMPPJID *> *) members withConfiguration:(nonnull NSArray<NSXMLElement *> *)configuration {
 	
 	//		<iq from='crone1@shakespeare.lit/desktop'
 	//			      id='create1'
@@ -270,8 +274,12 @@ static NSString *const XMPPRoomLightDestroy = @"urn:xmpp:muclight:0#destroy";
 		[iq addAttributeWithName:@"type" stringValue:@"set"];
 		
 		NSXMLElement *query = [NSXMLElement elementWithName:@"query" xmlns:@"urn:xmpp:muclight:0#create"];
-		NSXMLElement *configuration = [NSXMLElement elementWithName:@"configuration"];
-		[configuration addChild:[NSXMLElement elementWithName:@"roomname" stringValue:self->roomname]];
+		NSXMLElement *configurationElement = [NSXMLElement elementWithName:@"configuration"];
+		[configurationElement addChild:[NSXMLElement elementWithName:@"roomname" stringValue:self->roomname]];
+		
+		for (NSXMLElement *element in configuration) {
+			[configurationElement addChild:element];
+		}
 		
 		NSXMLElement *occupants = [NSXMLElement elementWithName:@"occupants"];
 		for (XMPPJID *jid in members){
@@ -280,7 +288,7 @@ static NSString *const XMPPRoomLightDestroy = @"urn:xmpp:muclight:0#destroy";
 			[occupants addChild:userElement];
 		}
 		
-		[query addChild:configuration];
+		[query addChild:configurationElement];
 		[query addChild:occupants];
 		
 		[iq addChild:query];
