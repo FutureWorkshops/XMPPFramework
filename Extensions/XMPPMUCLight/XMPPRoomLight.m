@@ -364,7 +364,7 @@ static NSString *const XMPPRoomLightDestroy = @"urn:xmpp:muclight:0#destroy";
 	}
 }
 
-- (void)addUsers:(nonnull NSArray<XMPPJID *> *)users{
+- (nonnull NSString *)addUsers:(nonnull NSArray<XMPPJID *> *)users{
 	
 	//    <iq from="crone1@shakespeare.lit/desktop"
 	//          id="member1"
@@ -375,9 +375,9 @@ static NSString *const XMPPRoomLightDestroy = @"urn:xmpp:muclight:0#destroy";
 	//       </query>
 	//    </iq>
 	
+	NSString *iqID = [XMPPStream generateUUID];
+	
 	dispatch_block_t block = ^{ @autoreleasepool {
-		
-		NSString *iqID = [XMPPStream generateUUID];
 		NSXMLElement *iq = [NSXMLElement elementWithName:@"iq"];
 		[iq addAttributeWithName:@"id" stringValue:iqID];
 		[iq addAttributeWithName:@"to" stringValue:self.roomJID.full];
@@ -406,6 +406,8 @@ static NSString *const XMPPRoomLightDestroy = @"urn:xmpp:muclight:0#destroy";
 	}else{
 		dispatch_async(moduleQueue, block);
 	}
+	
+	return iqID;
 }
 
 - (void)handleAddUsers:(XMPPIQ *)iq withInfo:(id <XMPPTrackingInfo>)info{
@@ -534,13 +536,15 @@ static NSString *const XMPPRoomLightDestroy = @"urn:xmpp:muclight:0#destroy";
 	[self sendMessage:message];
 }
 
-- (void)changeRoomSubject:(nonnull NSString *)roomSubject{
+- (nonnull NSString *)changeRoomSubject:(nonnull NSString *)roomSubject{
 
-	[self setConfiguration:@[[NSXMLElement elementWithName:@"subject" stringValue:roomSubject]]];
+	return [self setConfiguration:@[[NSXMLElement elementWithName:@"subject" stringValue:roomSubject]]];
 
 }
 
-- (void)changeAffiliations:(nonnull NSArray<NSXMLElement *> *)members{
+- (nonnull NSString *)changeAffiliations:(nonnull NSArray<NSXMLElement *> *)members{
+	NSString *iqID = [XMPPStream generateUUID];
+	
 	dispatch_block_t block = ^{ @autoreleasepool {
 
 		// <iq from='crone1@shakespeare.lit/desktop'
@@ -554,7 +558,6 @@ static NSString *const XMPPRoomLightDestroy = @"urn:xmpp:muclight:0#destroy";
 		// 	</query>
 		// </iq>
 
-		NSString *iqID = [XMPPStream generateUUID];
 		XMPPIQ *iq = [XMPPIQ iqWithType:@"set" to:self->_roomJID elementID:iqID];
 		NSXMLElement *query = [NSXMLElement elementWithName:@"query" xmlns:XMPPRoomLightAffiliations];
 
@@ -576,6 +579,8 @@ static NSString *const XMPPRoomLightDestroy = @"urn:xmpp:muclight:0#destroy";
 		block();
 	else
 		dispatch_async(moduleQueue, block);
+	
+	return iqID;
 }
 
 - (void)handleChangeAffiliations:(XMPPIQ *)iq withInfo:(id <XMPPTrackingInfo>)info{
@@ -637,8 +642,9 @@ static NSString *const XMPPRoomLightDestroy = @"urn:xmpp:muclight:0#destroy";
 	}
 }
 
-- (void)setConfiguration:(nonnull NSArray<NSXMLElement *> *)configs{
+- (nonnull NSString *)setConfiguration:(nonnull NSArray<NSXMLElement *> *)configs{
 
+	NSString *iqID = [XMPPStream generateUUID];
 	dispatch_block_t block = ^{ @autoreleasepool {
 
 		// <iq from='crone1@shakespeare.lit/desktop' id='conf2' to='coven@muclight.shakespeare.lit' type='set'>
@@ -647,7 +653,6 @@ static NSString *const XMPPRoomLightDestroy = @"urn:xmpp:muclight:0#destroy";
 		//	 </query>
 		// </iq>
 
-		NSString *iqID = [XMPPStream generateUUID];
 		XMPPIQ *iq = [XMPPIQ iqWithType:@"set" to:self->_roomJID elementID:iqID];
 		NSXMLElement *query = [NSXMLElement elementWithName:@"query" xmlns:XMPPRoomLightConfiguration];
 
@@ -669,6 +674,8 @@ static NSString *const XMPPRoomLightDestroy = @"urn:xmpp:muclight:0#destroy";
 		block();
 	else
 		dispatch_async(moduleQueue, block);
+	
+	return iqID;
 }
 
 - (void)handleSetConfiguration:(XMPPIQ *)iq withInfo:(id <XMPPTrackingInfo>)info{
