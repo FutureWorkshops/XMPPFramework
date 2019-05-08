@@ -33,15 +33,15 @@
 - (void)createRoomLightWithMembersJID:(nullable NSArray<XMPPJID *> *) members;
 - (void)createRoomLightWithMembersJID:(nullable NSArray<XMPPJID *> *) members withConfiguration:(nonnull NSArray<NSXMLElement *> *)configuration;
 - (void)leaveRoomLight;
-- (void)addUsers:(nonnull NSArray<XMPPJID *> *)users;
+- (nonnull NSString *)addUsers:(nonnull NSArray<XMPPJID *> *)users;
 - (void)fetchMembersList;
 - (void)sendMessage:(nonnull XMPPMessage *)message;
 - (void)sendMessageWithBody:(nonnull NSString *)messageBody;
-- (void)changeRoomSubject:(nonnull NSString *)roomSubject;
+- (nonnull NSString *)changeRoomSubject:(nonnull NSString *)roomSubject;
 - (void)destroyRoom;
-- (void)changeAffiliations:(nonnull NSArray<NSXMLElement *> *)members;
+- (nonnull NSString *)changeAffiliations:(nonnull NSArray<NSXMLElement *> *)members;
 - (void)getConfiguration;
-- (void)setConfiguration:(nonnull NSArray<NSXMLElement *> *)configs;
+- (nonnull NSString *)setConfiguration:(nonnull NSArray<NSXMLElement *> *)configs;
 - (void)flushVersion;
 @end
 
