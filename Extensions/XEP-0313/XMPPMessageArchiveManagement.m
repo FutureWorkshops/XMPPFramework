@@ -58,11 +58,11 @@ static NSString *const QueryIdAttributeName = @"queryid";
     }];
 }
 
-- (void)retrieveMessageArchiveWithFields:(NSArray *)fields withResultSet:(XMPPResultSet *)resultSet {
-	[self retrieveMessageArchiveAt:nil withFields:fields withResultSet:resultSet];
+- (NSString *)retrieveMessageArchiveWithFields:(NSArray *)fields withResultSet:(XMPPResultSet *)resultSet {
+	return [self retrieveMessageArchiveAt:nil withFields:fields withResultSet:resultSet];
 }
 
-- (void)retrieveMessageArchiveAt:(XMPPJID *)archiveJID withFields:(NSArray *)fields withResultSet:(XMPPResultSet *)resultSet {
+- (NSString *)retrieveMessageArchiveAt:(XMPPJID *)archiveJID withFields:(NSArray *)fields withResultSet:(XMPPResultSet *)resultSet {
     NSXMLElement *formElement = [NSXMLElement elementWithName:@"x" xmlns:@"jabber:x:data"];
     [formElement addAttributeWithName:@"type" stringValue:@"submit"];
     [formElement addChild:[XMPPMessageArchiveManagement fieldWithVar:@"FORM_TYPE" type:@"hidden" andValue:XMLNS_XMPP_MAM]];
@@ -71,12 +71,12 @@ static NSString *const QueryIdAttributeName = @"queryid";
         [formElement addChild:field];
     }
 
-    [self retrieveMessageArchiveAt:archiveJID withFormElement:formElement resultSet:resultSet];
+    return [self retrieveMessageArchiveAt:archiveJID withFormElement:formElement resultSet:resultSet];
 }
 
-- (void)retrieveMessageArchiveAt:(XMPPJID *)archiveJID withFormElement:(NSXMLElement *)formElement resultSet:(XMPPResultSet *)resultSet {
+- (NSString *)retrieveMessageArchiveAt:(XMPPJID *)archiveJID withFormElement:(NSXMLElement *)formElement resultSet:(XMPPResultSet *)resultSet {
+    XMPPIQ *iq = [XMPPIQ iqWithType:@"set"];
 	[self performBlockAsync:^{
-		XMPPIQ *iq = [XMPPIQ iqWithType:@"set"];
 		[iq addAttributeWithName:@"id" stringValue:[XMPPStream generateUUID]];
 		
 		if (archiveJID) {
@@ -103,6 +103,7 @@ static NSString *const QueryIdAttributeName = @"queryid";
 
 		[self->xmppStream sendElement:iq];
 	}];
+    return iq.elementID;
 }
 
 - (void)handleMessageArchiveIQ:(XMPPIQ *)iq withInfo:(XMPPBasicTrackingInfo *)trackerInfo {
@@ -122,7 +123,7 @@ static NSString *const QueryIdAttributeName = @"queryid";
                 [self.outstandingQueryIds removeObject:queryId];
             }
             
-            [multicastDelegate xmppMessageArchiveManagement:self didFinishReceivingMessagesWithSet:resultSet];
+            [multicastDelegate xmppMessageArchiveManagement:self didFinishReceivingMessagesWithSet:resultSet forIQ: iq];
             return;
         }
         
@@ -131,7 +132,8 @@ static NSString *const QueryIdAttributeName = @"queryid";
         NSXMLElement *originalFormElement = [[[originalIq elementForName:@"query"] elementForName:@"x"] copy];
         XMPPResultSet *pagingResultSet = [[XMPPResultSet alloc] initWithMax:self.resultAutomaticPagingPageSize after:lastId];
         
-        [self retrieveMessageArchiveAt:originalArchiveJID withFormElement:originalFormElement resultSet:pagingResultSet];
+        NSString *newIQId = [self retrieveMessageArchiveAt:originalArchiveJID withFormElement:originalFormElement resultSet:pagingResultSet];
+        [multicastDelegate xmppMessageArchiveManagement:self didRequestNewPage:newIQId afterPage:originalIq.elementID withResult:resultSet];
 	} else {
 		[multicastDelegate xmppMessageArchiveManagement:self didFailToReceiveMessages:iq];
 	}
