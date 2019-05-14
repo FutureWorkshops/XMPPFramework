@@ -28,10 +28,10 @@ extern NSString *const XMLNS_XMPP_MAM;
  */
 @property (readwrite, assign) NSInteger resultAutomaticPagingPageSize;
 
-- (void)retrieveMessageArchiveWithFields:(nullable NSArray<NSXMLElement*> *)fields
-                           withResultSet:(nullable XMPPResultSet *)resultSet;
+- (NSString *)retrieveMessageArchiveWithFields:(nullable NSArray<NSXMLElement*> *)fields
+                                 withResultSet:(nullable XMPPResultSet *)resultSet;
 
-- (void)retrieveMessageArchiveAt:(nullable XMPPJID *)archiveJID
+- (NSString *)retrieveMessageArchiveAt:(nullable XMPPJID *)archiveJID
                       withFields:(nullable NSArray<NSXMLElement*> *)fields
                    withResultSet:(nullable XMPPResultSet *)resultSet;
 
@@ -45,10 +45,10 @@ extern NSString *const XMLNS_XMPP_MAM;
 
 @protocol XMPPMessageArchiveManagementDelegate
 @optional
-- (void)xmppMessageArchiveManagement:(XMPPMessageArchiveManagement *)xmppMessageArchiveManagement didFinishReceivingMessagesWithSet:(XMPPResultSet *)resultSet;
+- (void)xmppMessageArchiveManagement:(XMPPMessageArchiveManagement *)xmppMessageArchiveManagement didFinishReceivingMessagesWithSet:(XMPPResultSet *)resultSet forIQ:(XMPPIQ *)iq;
 - (void)xmppMessageArchiveManagement:(XMPPMessageArchiveManagement *)xmppMessageArchiveManagement didReceiveMAMMessage:(XMPPMessage *)message;
 - (void)xmppMessageArchiveManagement:(XMPPMessageArchiveManagement *)xmppMessageArchiveManagement didFailToReceiveMessages:(nullable XMPPIQ *)error;
-
+- (void)xmppMessageArchiveManagement:(XMPPMessageArchiveManagement *)xmppMessageArchiveManagement didRequestNewPage:(NSString *)newIQId afterPage:(NSString *)oldIQId withResult:(XMPPResultSet *)resultSet;
 - (void)xmppMessageArchiveManagement:(XMPPMessageArchiveManagement *)xmppMessageArchiveManagement didReceiveFormFields:(XMPPIQ *)iq;
 - (void)xmppMessageArchiveManagement:(XMPPMessageArchiveManagement *)xmppMessageArchiveManagement didFailToReceiveFormFields:(XMPPIQ *)iq;
 @end
