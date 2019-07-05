@@ -76,8 +76,9 @@ static NSString *const QueryIdAttributeName = @"queryid";
 
 - (NSString *)retrieveMessageArchiveAt:(XMPPJID *)archiveJID withFormElement:(NSXMLElement *)formElement resultSet:(XMPPResultSet *)resultSet {
     XMPPIQ *iq = [XMPPIQ iqWithType:@"set"];
+    NSString *iqId = [XMPPStream generateUUID];
 	[self performBlockAsync:^{
-		[iq addAttributeWithName:@"id" stringValue:[XMPPStream generateUUID]];
+		[iq addAttributeWithName:@"id" stringValue:iqId];
 		
 		if (archiveJID) {
 			[iq addAttributeWithName:@"to" stringValue:[archiveJID full]];
@@ -103,7 +104,7 @@ static NSString *const QueryIdAttributeName = @"queryid";
 
 		[self->xmppStream sendElement:iq];
 	}];
-    return iq.elementID;
+    return iqId;
 }
 
 - (void)handleMessageArchiveIQ:(XMPPIQ *)iq withInfo:(XMPPBasicTrackingInfo *)trackerInfo {
