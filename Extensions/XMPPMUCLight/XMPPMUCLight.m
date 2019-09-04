@@ -66,18 +66,24 @@ NSString *const XMPPMUCLightBlocking = @"urn:xmpp:muclight:0#blocking";
 	}
 }
 
-- (BOOL)discoverRoomsForServiceNamed:(nonnull NSString *)serviceName {
+- (nullable NSString *)discoverRoomsForServiceNamed:(nonnull NSString *)serviceName usingResultSet: (nullable XMPPResultSet *)resultSet {
 	
 	if (serviceName.length < 2)
-		return NO;
+		return nil;
+    
+    NSString * iqID = [self->xmppStream generateUUID];
 	
 	dispatch_block_t block = ^{ @autoreleasepool {
 
 		NSXMLElement *query = [NSXMLElement elementWithName:@"query"
 													  xmlns:XMPPMUCLightDiscoItemsNamespace];
+        if (resultSet != nil) {
+            [query addChild:resultSet];
+        }
+        
 		XMPPIQ *iq = [XMPPIQ iqWithType:@"get"
 									 to:[XMPPJID jidWithString:serviceName]
-							  elementID:[self->xmppStream generateUUID]
+							  elementID:iqID
 								  child:query];
 		
 		[self->xmppIDTracker addElement:iq
@@ -93,11 +99,12 @@ NSString *const XMPPMUCLightBlocking = @"urn:xmpp:muclight:0#blocking";
 	else
 		dispatch_async(moduleQueue, block);
 	
-	return YES;
+	return iqID;
 }
 
 - (void)handleDiscoverRoomsQueryIQ:(XMPPIQ *)iq withInfo:(XMPPBasicTrackingInfo *)info {
 	dispatch_block_t block = ^{ @autoreleasepool {
+        NSString * iqID = [iq elementID];
 		NSXMLElement *errorElem = [iq elementForName:@"error"];
 		NSString *serviceName = [iq attributeStringValueForName:@"from" withDefaultValue:@""];
 		
@@ -109,7 +116,7 @@ NSString *const XMPPMUCLightBlocking = @"urn:xmpp:muclight:0#blocking";
 												 code:errorCode
 											 userInfo:dict];
 			
-			[self->multicastDelegate xmppMUCLight:self failedToDiscoverRoomsForServiceNamed:serviceName withError:error];
+			[self->multicastDelegate xmppMUCLight:self failedToDiscoverRoomsForServiceNamed:serviceName withError:error forQueryID:iqID];
 			return;
 		}
 		
@@ -117,8 +124,9 @@ NSString *const XMPPMUCLightBlocking = @"urn:xmpp:muclight:0#blocking";
 										   xmlns:XMPPMUCLightDiscoItemsNamespace];
 		
 		NSArray *items = [query elementsForName:@"item"];
+        XMPPResultSet * resultSet = [query resultSet];
 
-		[self->multicastDelegate xmppMUCLight:self didDiscoverRooms:items forServiceNamed:serviceName];
+		[self->multicastDelegate xmppMUCLight:self didDiscoverRooms:items withResultSet:resultSet forServiceNamed:serviceName forQueryID:iqID];
 		
 	}};
 	

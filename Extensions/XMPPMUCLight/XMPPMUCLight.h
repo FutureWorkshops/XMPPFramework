@@ -43,7 +43,10 @@
 }
 
 - (nonnull NSSet<XMPPJID*>*)rooms;
-- (BOOL)discoverRoomsForServiceNamed:(nonnull NSString *)serviceName;
+/**
+ * Returns the id of the iq element built for the request, or nil if the request could not be built
+ **/
+- (nullable NSString *)discoverRoomsForServiceNamed:(nonnull NSString *)serviceName usingResultSet: (nullable XMPPResultSet *)resultSet;
 - (BOOL)requestBlockingList:(nonnull NSString *)serviceName;
 - (BOOL)performActionOnElements:(nonnull NSArray<__kindof NSXMLElement *> *)elements forServiceNamed:(nonnull NSString *)serviceName;
 @end
@@ -51,8 +54,8 @@
 @protocol XMPPMUCLightDelegate
 @optional
 
-- (void)xmppMUCLight:(nonnull XMPPMUCLight *)sender didDiscoverRooms:(nonnull NSArray<__kindof NSXMLElement*>*)rooms forServiceNamed:(nonnull NSString *)serviceName;
-- (void)xmppMUCLight:(nonnull XMPPMUCLight *)sender failedToDiscoverRoomsForServiceNamed:(nonnull NSString *)serviceName withError:(nonnull NSError *)error;
+- (void)xmppMUCLight:(nonnull XMPPMUCLight *)sender didDiscoverRooms:(nonnull NSArray<__kindof NSXMLElement*>*)rooms withResultSet:(nonnull XMPPResultSet *)resultSet forServiceNamed:(nonnull NSString *)serviceName forQueryID:(nonnull NSString *)queryID;
+- (void)xmppMUCLight:(nonnull XMPPMUCLight *)sender failedToDiscoverRoomsForServiceNamed:(nonnull NSString *)serviceName withError:(nonnull NSError *)error forQueryID:(nonnull NSString *)queryID;
 - (void)xmppMUCLight:(nonnull XMPPMUCLight *)sender changedAffiliation:(nonnull NSString *)affiliation userJID:(nonnull XMPPJID *)userJID roomJID:(nonnull XMPPJID *)roomJID;
 
 - (void)xmppMUCLight:(nonnull XMPPMUCLight *)sender didRequestBlockingList:(nonnull NSArray<NSXMLElement*>*)items forServiceNamed:(nonnull NSString *)serviceName;
