@@ -21,54 +21,11 @@
 #import "XMPPJingleSDP.h"
 
 
-@interface XMPPJingle()
+@interface XMPPJingle() <XMPPStreamDelegate>
 {
     BOOL enableLogging;
     XMPPJingleSDPUtil *sdpUtil;
 }
-- (NSString *)ParseSDP:(XMPPIQ *)iq;
-
-// Called when a session-initiate message is received
-- (void)onSessionInitiate:(XMPPIQ *)iq;
-
-// Called when a session-info message is received
-- (void)onSessionInfo:(XMPPIQ *)iq;
-
-// Called when a session-accept message is received
-- (void)onSessionAccept:(XMPPIQ *)iq;
-
-// Called when a session-terminate message is received
-- (void)onSessionTerminate:(XMPPIQ *)iq;
-
-// Called when a transport-accept message is received
-- (void)onTransportAccept:(XMPPIQ *)iq;
-
-// Called when a transport-info message is received
-- (void)onTransportInfo:(XMPPIQ *)iq;
-
-// Called when a transport-reject message is received
-- (void)onTransportReject:(XMPPIQ *)iq;
-
-// Called when a transport-replace message is received
-- (void)onTransportReplace:(XMPPIQ *)iq;
-
-// Called when a content-accept message is received
-- (void)onContentAccept:(XMPPIQ *)iq;
-
-// Called when a content-add message is received
-- (void)onContentAdd:(XMPPIQ *)iq;
-
-// Called when a content-modify message is received
-- (void)onContentModify:(XMPPIQ *)iq;
-
-// Called when a content-reject message is received
-- (void)onContentReject:(XMPPIQ *)iq;
-
-// Called when a content-remove message is received
-- (void)onContentRemove:(XMPPIQ *)iq;
-
-// Called when a description-info message is received
-- (void)onDescriptionInfo:(XMPPIQ *)iq;
 @end
 
 @implementation XMPPJingle
@@ -333,6 +290,13 @@
 
 # pragma mark - XMPP stream methods
 
+- (void)addDelegate:(id)delegate delegateQueue:(dispatch_queue_t)delegateQueue {
+    if ([delegate conformsToProtocol:@protocol(XMPPJingleDelegate)]) {
+        self.delegate = delegate;
+    }
+    [super addDelegate:delegate delegateQueue:delegateQueue];
+}
+
 // Called when a iq message is received
 - (BOOL)xmppStream:(XMPPStream *)sender didReceiveIQ:(XMPPIQ *)iq
 {
@@ -355,7 +319,7 @@
     if (type == nil)
         return NO;
     
-    NSLog(@"XMPP : Jingle : didReceiveIQ :: Got a jingle message %@ of type %@", jingleElement, type);
+    NSLog(@"XMPP : Jingle : didReceiveIQ :: Got a jingle message of type %@", type);
     
     // Based on
     if ([type isEqualToString:@"session-initiate"])
@@ -372,7 +336,7 @@
     }
     else if ([type isEqualToString:@"session-terminate"])
     {
-        [self onSessionTerminate:iq];
+        [self onSessionTerminate:iq sid:[jingleElement attributeStringValueForName:@"sid"]];
     }
     else if ([type isEqualToString:@"transport-accept"])
     {
@@ -420,35 +384,13 @@
     }
     else
     {
-        NSLog(@"XMPP : Jingle : didReceiveIQ :: Not a jingle message type %@",  type);
         return NO;
     }
 
     XMPPIQ *iqResponse = [XMPPIQ iqWithType:@"result" to:[iq from] elementID:[iq elementID]];
     [xmppStream sendElement:iqResponse];
 
-    // Check if we have received a IQ for jingle
-    //if (iq.namespaces)
-
     return YES;
-}
-
-// Called when a message is received
-- (void)xmppStream:(XMPPStream *)sender didReceiveMessage:(XMPPMessage *)message
-{
-    NSLog(@"XMPP : Jingle : didReceiveMessage %@", message.description);
-    
-    //TBD
-}
-
-// Called when a presence message is received
-- (void)xmppStream:(XMPPStream *)sender didReceivePresence:(XMPPPresence *)presence
-{
-    NSLog(@"XMPP : Jingle : didReceivePresence %@", presence.description);
-    
-    //TBD
-
-    
 }
 
 @end
