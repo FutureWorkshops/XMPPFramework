@@ -89,7 +89,12 @@
     // So we need codec list before we could create this line
     NSArray *codeclist = [[content elementForName:@"description"] elementsForName:@"payload-type"];
 
-    [contentString appendFormat:@"m=%@ 1 RTP/SAVPF",(NSString *)[content attributeStringValueForName:@"name"  ]];
+    NSString *name = (NSString *)[content attributeStringValueForName:@"name"];
+    if ([name isEqualToString:@"data"]) {
+        [contentString appendFormat:@"m=application 1 UDP/DTLS/SCTP webrtc-datachannel"];
+    } else {
+        [contentString appendFormat:@"m=%@ 1 UDP/TLS/RTP/SAVPF", name];
+    }
     for (int i=0; i<[codeclist count]; i++)
     {
         [contentString appendFormat:@" %@", [[codeclist objectAtIndex:i] attributeStringValueForName:@"id"] ];
@@ -98,7 +103,11 @@
     
     // Next line is c=IN IP4 0.0.0.0, a=rtcp...
     [contentString appendString:@"c=IN IP4 0.0.0.0\r\n"];
-    [contentString appendString:@"a=rtcp:1 IN IP4 0.0.0.0\r\n"];
+    
+    if (![name isEqualToString:@"data"]) {
+        [contentString appendString:@"a=rtcp:1 IN IP4 0.0.0.0\r\n"];
+    }
+    
     
     // Next line is ice pwd etc
     NSXMLElement * transportInfo = [content elementForName:@"transport"];
@@ -111,7 +120,11 @@
         if (pwd) [contentString appendFormat:@"a=ice-pwd:%@\r\n", pwd ];
         
         NSString *options = [transportInfo attributeStringValueForName:@"options"];
-        if (options) [contentString appendFormat:@"a=ice-options:%@\r\n", options];
+        if (options) {
+            [contentString appendFormat:@"a=ice-options:%@\r\n", options];
+        } else {
+            [contentString appendFormat:@"a=ice-options:trickle renomination\r\n"];
+        }
         
         NSArray *candidates = [transportInfo elementsForName:@"candidate"];
         
@@ -152,6 +165,18 @@
             }
         }
 
+        NSXMLElement* sctpmap = [transportInfo elementForName:@"sctpmap"];
+        if (sctpmap) {
+            NSString *port = [sctpmap attributeStringValueForName:@"number"];
+            if (port) {
+                [contentString appendFormat:@"a=sctp-port:%@\r\n", port];
+            }
+            
+            NSString *maxSize = [sctpmap attributeStringValueForName:@"streams"];
+            if (maxSize) {
+                [contentString appendFormat:@"a=max-message-size:%@\r\n", maxSize];
+            }
+        }
         
         NSXMLElement * fingerprint = [transportInfo elementForName:@"fingerprint"];
         if (fingerprint)
@@ -201,10 +226,13 @@
         }
     }
     
-    // Next line is rtcp-mux
-    if ([[content elementForName:@"description"] elementForName:@"rtcp-mux"] )
-    {
-        [contentString appendString:@"a=rtcp-mux\r\n"];
+    if (![name isEqualToString:@"data"]) {
+        [contentString appendFormat:@"a=msid:mixedmslabel mixedlabel%@0\r\n",name];
+        // Next line is rtcp-mux
+        if ([[content elementForName:@"description"] elementForName:@"rtcp-mux"] )
+        {
+            [contentString appendString:@"a=rtcp-mux\r\n"];
+        }
     }
     
     // Next line is crypto
@@ -306,6 +334,33 @@
         if (label) [contentString appendFormat:@"a=ssrc:%@ label:%@\r\n", [ssrc attributeStringValueForName:@"ssrc"], label];
     }
     
+    NSArray *sources = [[content elementForName:@"description"] elementsForName:@"source"];
+    for (NSXMLElement *source in sources) {
+        
+        NSString *sourceId = [source attributeStringValueForName:@"ssrc"];
+        if (sourceId == nil) {
+            continue;
+        }
+        NSArray *parameters = [source elementsForName:@"parameter"];
+        
+        
+        NSMutableDictionary<NSString *, NSString *> *sourceParameters = [[NSMutableDictionary alloc] init];
+        for (NSXMLElement *parameter in parameters) {
+            NSString *name = [parameter attributeStringValueForName:@"name"];
+            NSString *value = [parameter attributeStringValueForName:@"value"];
+            
+            [sourceParameters setValue:value forKey:name];
+        }
+        
+        if ([sourceParameters objectForKey:@"label"] == nil) {
+            continue;
+        }
+        
+        [sourceParameters enumerateKeysAndObjectsUsingBlock:^(NSString *  _Nonnull name, NSString *  _Nonnull value, BOOL * _Nonnull stop) {
+            [contentString appendString:[NSString stringWithFormat:@"a=ssrc:%@ %@:%@\r\n", sourceId, name, value]];
+        }];
+    }
+    
     
     NSLog(@"ContentString is %@", contentString);
     
@@ -389,6 +444,8 @@
     {
         [SDP appendString:groupStr];
     }
+    
+    [SDP appendString:@"a=msid-semantic: WMS mixedmslabel\r\n"];
     
     // To check if a=msid-semantic line is needed
     

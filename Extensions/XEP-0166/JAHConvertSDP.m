@@ -338,6 +338,9 @@
     NSMutableArray* parsed = [NSMutableArray array];
     for (NSString* part in parts) {
         keyValue = [part componentsSeparatedByString:@"="];
+        if (keyValue.count < 2) {
+            continue;
+        }
         NSString* key = [keyValue[0] stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
         NSString* value = keyValue[1];
         if (key && value) {
