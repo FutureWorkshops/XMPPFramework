@@ -292,6 +292,10 @@
    [self.delegate didReceiveSessionMsg:nil type:@"source-add" data:nil];
 }
 
+- (void)onSourceRemove:(XMPPIQ *)iq
+{
+   [self.delegate didReceiveSessionMsg:nil type:@"source-remove" data:nil];
+}
 
 # pragma mark - XMPP stream methods
 
@@ -386,6 +390,10 @@
     else if ([type isEqualToString:@"source-add"])
     {
         [self onSourceAdd:iq];
+    }
+    else if ([type isEqualToString:@"source-add"])
+    {
+        [self onSourceRemove:iq];
     }
     else
     {
