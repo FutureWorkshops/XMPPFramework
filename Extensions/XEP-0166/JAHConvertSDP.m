@@ -88,7 +88,9 @@
     NSMutableDictionary* description = [NSMutableDictionary dictionary];
 
     NSMutableDictionary* transport = [NSMutableDictionary dictionary];
-    if ([mLine[@"media"] isEqualToString:@"application"]) {
+    transport[@"fingerprints"] = [NSMutableArray array];
+    
+    if ([mLine[@"media"] isEqualToString:@"application"] || [mLine[@"media"] isEqualToString:@"data"]) {
         description[@"descType"] = @"datachannel";
 
         NSMutableArray* sctp = [NSMutableArray array];
@@ -103,7 +105,6 @@
 
         transport[@"transType"] = @"iceUdp";
         transport[@"candidates"] = [NSMutableArray array];
-        transport[@"fingerprints"] = [NSMutableArray array];
 
         NSString* ssrc = [[self class] lineForPrefix:@"a=ssrc:" mediaLines:mediaLines sessionLines:nil];
         if (ssrc) {
@@ -194,6 +195,16 @@
         }
     }
 
+    NSArray *stcpPortLines = [[self class] linesForPrefix:@"a=sctp-port:" mediaLines:mediaLines sessionLines:nil];
+    for (NSString *line in stcpPortLines) {
+        [transport setValue:[line substringFromIndex:12] forKey:@"port"];
+    }
+    
+    NSArray *stcpSize = [[self class] linesForPrefix:@"a=max-message-size:" mediaLines:mediaLines sessionLines:nil];
+    for (NSString *line in stcpSize) {
+        [transport setValue:[line substringFromIndex:19] forKey:@"maxsize"];
+    }
+    
     content[@"description"] = description;
     content[@"transport"] = transport;
 

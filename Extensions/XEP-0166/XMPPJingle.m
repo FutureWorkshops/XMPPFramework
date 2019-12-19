@@ -128,7 +128,7 @@
     // Parse SDP
     if ([type isEqualToString:@"transport-info"])
     {
-        XMPPIQ *candidate = [sdpUtil CandidateToXMPP:data action:type initiator:target/*[myStream myJID]*/ target:target UID:UID SID:SID];
+        XMPPIQ *candidate = [sdpUtil CandidateToXMPP:data media:nil action:type initiator:target/*[myStream myJID]*/ target:target UID:UID SID:SID];
         if (candidate != nil)
             [myStream sendElement:candidate];
     }
@@ -167,6 +167,11 @@
     [jsonDict setValue:from forKey:@"from"];
     //[jsonDict setValue:iq.toStr forKey:@"to"];
     [jsonDict setValue:to forKey:@"to"];
+    
+    NSString *initiator = [[iq elementForName:@"jingle"] attributeStringValueForName:@"initiator"];
+    if (initiator) {
+        [jsonDict setValue:initiator forKey:@"initiator"];
+    }
     
     // Set the sid if it exists
     NSString *sessionid = [[iq elementForName:@"jingle"] attributeStringValueForName:@"sid"  ];
