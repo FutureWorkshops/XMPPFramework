@@ -23,8 +23,10 @@
     NSString *gUfrag;
     NSString *gPwd;
 }
+- (XMPPElement *)candidateToXMPP:(NSDictionary *)dict;
 - (XMPPIQ *)SDPToXMPP:(NSString *)sdp action:(NSString *)action initiator:(XMPPJID *)initiator target:(XMPPJID *)target UID:(NSString *)UID SID:(NSString *)SID;
-- (XMPPIQ *)CandidateToXMPP:(NSDictionary *)dict action:(NSString *)action initiator:(XMPPJID *)initiator target:(XMPPJID *)target UID:(NSString *)UID SID:(NSString *)SID;
+- (XMPPIQ *)SDPToXMPP:(NSString *)sdp action:(NSString *)action initiator:(XMPPJID *)initiator bridgeSession:(NSString *)bridgeSession responder:(NSString *)responder target:(XMPPJID *)target UID:(NSString *)UID SID:(NSString *)SID;
+- (XMPPIQ *)CandidateToXMPP:(NSDictionary *)dict media:(NSString *)media action:(NSString *)action initiator:(XMPPJID *)initiator target:(XMPPJID *)target UID:(NSString *)UID SID:(NSString *)SID;
 - (NSXMLElement *)MediaToXMPP:(NSString *)type  data:(NSDictionary *)data target:(XMPPJID *)target UID:(NSString *)UID SID:(NSString *)SID;
 
 - (NSString *)XMPPToSDP:(XMPPIQ *)iq;
