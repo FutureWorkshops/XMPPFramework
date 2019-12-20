@@ -168,14 +168,9 @@
         NSXMLElement* sctpmap = [transportInfo elementForName:@"sctpmap"];
         if (sctpmap) {
             NSString *port = [sctpmap attributeStringValueForName:@"number"];
-            if (port) {
-                [contentString appendFormat:@"a=sctp-port:%@\r\n", port];
-            }
-            
             NSString *maxSize = [sctpmap attributeStringValueForName:@"streams"];
-            if (maxSize) {
-                [contentString appendFormat:@"a=max-message-size:%@\r\n", maxSize];
-            }
+            NSString *protocol = [sctpmap attributeStringValueForName:@"protocol"];
+            [contentString appendFormat:@"a=sctpmap:%@ %@ %@", port, protocol, maxSize];
         }
         
         NSXMLElement * fingerprint = [transportInfo elementForName:@"fingerprint"];
@@ -357,7 +352,7 @@
         }
         
         [sourceParameters enumerateKeysAndObjectsUsingBlock:^(NSString *  _Nonnull name, NSString *  _Nonnull value, BOOL * _Nonnull stop) {
-            [contentString appendString:[NSString stringWithFormat:@"a=ssrc:%@ %@:%@\r\n", sourceId, name, value]];
+            //[contentString appendString:[NSString stringWithFormat:@"a=ssrc:%@ %@:%@\r\n", sourceId, name, value]];
         }];
     }
     
@@ -445,7 +440,7 @@
         [SDP appendString:groupStr];
     }
     
-    [SDP appendString:@"a=msid-semantic: WMS mixedmslabel\r\n"];
+    //[SDP appendString:@"a=msid-semantic: WMS stream\r\n"];
     
     // To check if a=msid-semantic line is needed
     
