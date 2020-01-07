@@ -179,6 +179,11 @@
     {
         SID = sessionid;
     }
+    
+    NSString *bridgeSession = [[[iq elementForName:@"jingle"] elementForName:@"bridge-session" xmlns:@"http://jitsi.org/protocol/focus"] attributeStringValueForName:@"id"];
+    if (bridgeSession) {
+        [jsonDict setValue:bridgeSession forKey:@"bridge-session"];
+    }
     // post the message to delegate
     [self.delegate didReceiveSessionMsg:sid type:@"session-initiate" data:jsonDict];
     

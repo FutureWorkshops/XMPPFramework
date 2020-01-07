@@ -93,7 +93,7 @@
     if ([name isEqualToString:@"data"]) {
         [contentString appendFormat:@"m=application 1 UDP/DTLS/SCTP webrtc-datachannel"];
     } else {
-        [contentString appendFormat:@"m=%@ 1 UDP/TLS/RTP/SAVPF", name];
+        [contentString appendFormat:@"m=%@ 1 RTP/SAVPF", name];
     }
     for (int i=0; i<[codeclist count]; i++)
     {
@@ -352,7 +352,7 @@
         }
         
         [sourceParameters enumerateKeysAndObjectsUsingBlock:^(NSString *  _Nonnull name, NSString *  _Nonnull value, BOOL * _Nonnull stop) {
-            //[contentString appendString:[NSString stringWithFormat:@"a=ssrc:%@ %@:%@\r\n", sourceId, name, value]];
+            [contentString appendString:[NSString stringWithFormat:@"a=ssrc:%@ %@:%@\r\n", sourceId, name, value]];
         }];
     }
     
@@ -661,7 +661,11 @@
                     [paraElement addAttributeWithName:@"value" stringValue:value];
                     [paraElement addAttributeWithName:@"name" stringValue:key];
                     
-                    [sourceElement addChild:paraElement];                    
+                    [sourceElement addChild:paraElement];
+                    
+                    NSXMLElement *infoElement = [NSXMLElement elementWithName:@"ssrc-info" xmlns:@"http://jitsi.org/jitmeet"];
+                    [infoElement addAttributeWithName:@"owner" stringValue:[initiator full]];
+                    [sourceElement addChild:infoElement];
                     
                 }
                 
