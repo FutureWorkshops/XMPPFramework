@@ -563,6 +563,12 @@
             [payloadTypeElement addAttributeWithName:@"id" stringValue:strID];
             [payloadTypeElement addAttributeWithName:@"channels" stringValue:channels];
             
+            if ([name isEqualToString:@"H264"] || [name isEqualToString:@"VP8"] || [name isEqualToString:@"VP89"]) {
+                NSXMLElement *bitrateElement = [NSXMLElement elementWithName:@"parameter"];
+                [bitrateElement addAttributeWithName:@"name" stringValue:@"x-google-start-bitrate"];
+                [bitrateElement addAttributeWithName:@"value" stringValue:@"800"];
+            }
+            
             // Add rtcp-fb if it exists
             NSArray *rtcpfblist = [payload objectForKey:@"feedback"];
             if (rtcpfblist != nil)

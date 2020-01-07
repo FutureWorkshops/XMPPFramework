@@ -214,7 +214,14 @@
 + (NSDictionary*)candidateForLine:(NSString*)line {
     line = [[line componentsSeparatedByString:@"\r\n"] firstObject];
 
-    NSArray* parts = [[line substringFromIndex:10] componentsSeparatedByString:@" "];
+    NSArray* parts;
+    
+    if ([line hasPrefix:@"a="]) {
+        parts = [[line substringFromIndex:12] componentsSeparatedByString:@" "];
+    } else {
+        parts = [[line substringFromIndex:10] componentsSeparatedByString:@" "];
+    }
+    
 
     NSMutableDictionary* candidate = [NSMutableDictionary dictionary];
     candidate[@"foundation"] = parts[0];
