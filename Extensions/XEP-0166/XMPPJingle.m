@@ -396,7 +396,7 @@
     {
         [self onSourceAdd:iq];
     }
-    else if ([type isEqualToString:@"source-add"])
+    else if ([type isEqualToString:@"source-remove"])
     {
         [self onSourceRemove:iq];
     }

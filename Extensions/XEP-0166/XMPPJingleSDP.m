@@ -481,9 +481,9 @@
     
     if(responder) {
         [jingleElement addAttributeWithName:@"responder" stringValue:responder];
-    } else {
-        [jingleElement addAttributeWithName:@"initiator" stringValue:[initiator full]];
     }
+    
+    [jingleElement addAttributeWithName:@"initiator" stringValue:[initiator full]];
     
     // Add group
     NSArray *groups = [dict objectForKey:@"groups"];
@@ -515,7 +515,6 @@
     for (int i=0; i < [contents count]; i++)
     {
         NSDictionary *content = [contents objectAtIndex:i];
-        NSString* creator = [content objectForKey:@"creator"];
         NSString* media_name = [content objectForKey:@"name"];
         
         NSDictionary* description = [content objectForKey:@"description"];
@@ -526,11 +525,6 @@
         [contentElement addAttributeWithName:@"creator" stringValue:@"responder"];
         [contentElement addAttributeWithName:@"name" stringValue:media_name];
         [contentElement addAttributeWithName:@"senders" stringValue:@"both"];
-        
-        //Bundle
-        NSXMLElement *bundleElement = [NSXMLElement elementWithName:@"bundle"];
-        [bundleElement addAttributeWithName:@"xmlns" stringValue:@"http://estos.de/ns/bundle"];
-        [contentElement addChild:bundleElement];
         
         //Description
         NSXMLElement *descElement = [NSXMLElement elementWithName:@"description"];
