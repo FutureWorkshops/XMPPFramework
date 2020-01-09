@@ -73,6 +73,17 @@
     }
     content[@"name"] = name;
 
+    NSString* msid = [[self class] lineForPrefix:@"a=msid:" mediaLines:mediaLines sessionLines:nil];
+    if (msid) {
+        NSString *cleanLine = [[msid stringByReplacingOccurrencesOfString:@"a=msid:" withString:@""] stringByReplacingOccurrencesOfString:@"\r\n" withString:@""];
+        NSArray<NSString *> *components = [cleanLine componentsSeparatedByString:@" "];
+        if (components.count == 2) {
+            content[@"msid"] = cleanLine;
+            content[@"mslabel"] = components[0];
+            content[@"label"] = components[1];
+        }
+    }
+    
     NSString* senders;
     if ([[self class] lineForPrefix:@"a=sendrecv" mediaLines:mediaLines sessionLines:sessionLines]) {
         senders = @"both";

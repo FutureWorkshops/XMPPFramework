@@ -669,6 +669,30 @@
                     
                 }
                 
+                NSString *msid = [content objectForKey:@"msid"];
+                if (msid) {
+                    NSXMLElement *msidElement = [NSXMLElement elementWithName:@"parameter"];
+                    [msidElement addAttributeWithName:@"name" stringValue:@"msid"];
+                    [msidElement addAttributeWithName:@"value" stringValue:msid];
+                    [sourceElement addChild:msidElement];
+                }
+                
+                NSString *mslabel = [content objectForKey:@"mslabel"];
+                if (mslabel) {
+                    NSXMLElement *mslabelElement = [NSXMLElement elementWithName:@"parameter"];
+                    [mslabelElement addAttributeWithName:@"name" stringValue:@"mslabel"];
+                    [mslabelElement addAttributeWithName:@"value" stringValue:mslabel];
+                    [sourceElement addChild:mslabelElement];
+                }
+                
+                NSString *label = [content objectForKey:@"label"];
+                if (label) {
+                    NSXMLElement *labelElement = [NSXMLElement elementWithName:@"parameter"];
+                    [labelElement addAttributeWithName:@"name" stringValue:@"label"];
+                    [labelElement addAttributeWithName:@"value" stringValue:label];
+                    [sourceElement addChild:labelElement];
+                }
+                
                 [descElement addChild:sourceElement];
             }
             
