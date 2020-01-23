@@ -229,7 +229,13 @@
 {
     // Parse SDP
     NSDictionary *candidate = [sdpUtil XMPPToCandidate:iq];
-
+    [candidate setValue:iq.fromStr forKey:@"from"];
+    [candidate setValue:iq.toStr forKey:@"to"];
+    NSString *initiator = [[iq elementForName:@"jingle"] attributeStringValueForName:@"initiator"];
+    if (initiator) {
+        [candidate setValue:initiator forKey:@"initiator"];
+    }
+    
     // post the message to delegate
     [self.delegate didReceiveTransportMsg:[candidate objectForKey:@"sid"] type:@"transport-info" data:candidate];
 }
