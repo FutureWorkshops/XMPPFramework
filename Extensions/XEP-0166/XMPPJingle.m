@@ -324,6 +324,9 @@
 
     // Check if it is a jingle message
     NSXMLElement *jingleElement = [iq elementForName:@"jingle" xmlns:XEP_0166_XMLNS];
+    if (jingleElement == nil) {
+        jingleElement = [[iq elementsForName:@"jingle"] firstObject];
+    }
     
     // We are only looking for jingle related messages
     if (jingleElement == nil)
