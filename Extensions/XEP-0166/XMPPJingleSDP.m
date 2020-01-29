@@ -104,10 +104,6 @@
     // Next line is c=IN IP4 0.0.0.0, a=rtcp...
     [contentString appendString:@"c=IN IP4 0.0.0.0\r\n"];
     
-    if (![name isEqualToString:@"data"]) {
-        [contentString appendString:@"a=rtcp:1 IN IP4 0.0.0.0\r\n"];
-    }
-    
     
     // Next line is ice pwd etc
     NSXMLElement * transportInfo = [content elementForName:@"transport"];
@@ -122,8 +118,6 @@
         NSString *options = [transportInfo attributeStringValueForName:@"options"];
         if (options) {
             [contentString appendFormat:@"a=ice-options:%@\r\n", options];
-        } else {
-            [contentString appendFormat:@"a=ice-options:trickle renomination\r\n"];
         }
         
         NSArray *candidates = [transportInfo elementsForName:@"candidate"];
@@ -152,17 +146,33 @@
                         [sdp addObject:[canElement attributeStringValueForName:@"relAddr"]];
                         [sdp addObject:@"rport"];
                         [sdp addObject:[canElement attributeStringValueForName:@"relPort"]];
+                    } else if ([canElement attributeStringValueForName:@"rel-addr"] && [canElement attributeStringValueForName:@"rel-port"]) {
+                        [sdp addObject:@"raddr"];
+                        [sdp addObject:[canElement attributeStringValueForName:@"rel-addr"]];
+                        [sdp addObject:@"rport"];
+                        [sdp addObject:[canElement attributeStringValueForName:@"rel-port"]];
                     }
                 }
                 
                 [sdp addObject:@"generation"];
                 [sdp addObject:[canElement attributeStringValueForName:@"generation"] ?: @"0"];
                 
-                [dict setObject:[@"a=candidate:" stringByAppendingString:[sdp componentsJoinedByString:@" "]] forKey:@"candidate"]; ;
+                if (ufrag) {
+                    [sdp addObject:[NSString stringWithFormat:@"ufrag %@", ufrag]];
+                }
                 
+                if ([canElement attributeStringValueForName:@"network"]) {
+                    [sdp addObject:[NSString stringWithFormat:@"network-id %@", [canElement attributeStringValueForName:@"network"]]];
+                }
+                
+                [dict setObject:[@"a=candidate:" stringByAppendingString:[sdp componentsJoinedByString:@" "]] forKey:@"candidate"]; ;
                 [contentString appendFormat:@"%@\r\n",[dict objectForKey:@"candidate"]];
                 
             }
+        }
+        
+        if ([candidates count] > 0) {
+            [contentString appendString:@"a=end-of-candidates\r\n"];
         }
 
         NSXMLElement* sctpmap = [transportInfo elementForName:@"sctpmap"];
@@ -170,7 +180,7 @@
             NSString *port = [sctpmap attributeStringValueForName:@"number"];
             NSString *maxSize = [sctpmap attributeStringValueForName:@"streams"];
             NSString *protocol = [sctpmap attributeStringValueForName:@"protocol"];
-            [contentString appendFormat:@"a=sctpmap:%@ %@ %@", port, protocol, maxSize];
+            [contentString appendFormat:@"a=sctpmap:%@ %@ %@\r\n", port, protocol, maxSize];
         }
         
         NSXMLElement * fingerprint = [transportInfo elementForName:@"fingerprint"];
@@ -221,7 +231,7 @@
         }
     }
     
-    if (![name isEqualToString:@"data"]) {
+    if (![name isEqualToString:@"data"] && ![name isEqualToString:@"application"]) {
         [contentString appendFormat:@"a=msid:mixedmslabel mixedlabel%@0\r\n",name];
         // Next line is rtcp-mux
         if ([[content elementForName:@"description"] elementForName:@"rtcp-mux"] )
@@ -275,25 +285,32 @@
         NSArray * parameters = [codec elementsForName:@"parameter"];
         if (parameters)
         {
-            if ([parameters count] > 0)
-            {
-                [contentString appendFormat:@"a=fmtp:%@",
-                 [codec attributeStringValueForName:@"id"]
-                 ];
-            }
+            int parameterCount = 0;
             for (int i=0; i < [parameters count]; i++)
             {
                 NSString *name = [[parameters objectAtIndex:i] attributeStringValueForName:@"name"];
                 NSString *value = [[parameters objectAtIndex:i] attributeStringValueForName:@"value"];
+                
                 if (name && value)
                 {
-                    [contentString appendFormat:@" %@=%@",
-                           name,
-                           value
-                           ];
+                    if (parameterCount == 0) {
+                        [contentString appendFormat:@"a=fmtp:%@",
+                         [codec attributeStringValueForName:@"id"]
+                        ];
+                        [contentString appendFormat:@" %@=%@",
+                            name,
+                            value
+                            ];
+                    } else {
+                        [contentString appendFormat:@";%@=%@",
+                        name,
+                        value
+                        ];
+                    }
+                    parameterCount = parameterCount + 1;
                 }
             }
-            if ([parameters count] > 0)
+            if (parameterCount > 0)
             {
                 [contentString appendString:@"\r\n"];
             }
@@ -408,8 +425,6 @@
                 [dict setObject:[@"a=candidate:" stringByAppendingString:[sdp componentsJoinedByString:@" "]] forKey:@"candidate"]; ;
 
             }
-            //attributeStringValueForName:@"key-params" ];
-
         }
 
     }
@@ -487,37 +502,44 @@
     
     // Add group
     NSArray *groups = [dict objectForKey:@"groups"];
+    NSArray *contents = [dict objectForKey:@"contents"];
     
     for (int i=0; i < [groups count]; i++)
     {
         NSDictionary *group = [groups objectAtIndex:i];
         NSString* semantics = [group objectForKey:@"semantics"];
-        NSArray *contents = [group objectForKey:@"contents"];
         
         NSXMLElement *groupElement = [NSXMLElement elementWithName:@"group"];
         [groupElement addAttributeWithName:@"xmlns" stringValue:@"urn:xmpp:jingle:apps:grouping:0"];
         [groupElement addAttributeWithName:@"semantics" stringValue:semantics];
         
-        for (int j=0; j<[contents count]; j++)
+        for (int i=0; i < [contents count]; i++)
         {
+            NSDictionary *content = [contents objectAtIndex:i];
+            
+            NSDictionary* description = [content objectForKey:@"description"];
+            NSString* media_name = [description objectForKey:@"media"];
+            if (media_name == nil || [media_name isEqualToString:@""] || [media_name isEqualToString:@"application"]) {
+                media_name = @"data";
+            }
+            
             NSXMLElement *groupContent = [NSXMLElement elementWithName:@"content"];
-            [groupContent addAttributeWithName:@"name" stringValue:[contents objectAtIndex:j]];
+            [groupContent addAttributeWithName:@"name" stringValue:media_name];
             [groupElement addChild:groupContent];
         }
         
         [jingleElement addChild:groupElement];
     }
     
-    // Add content
-    
-    NSArray *contents = [dict objectForKey:@"contents"];
-    
     for (int i=0; i < [contents count]; i++)
     {
         NSDictionary *content = [contents objectAtIndex:i];
-        NSString* media_name = [content objectForKey:@"name"];
         
         NSDictionary* description = [content objectForKey:@"description"];
+        NSString* media_name = [description objectForKey:@"media"];
+        if (media_name == nil || [media_name isEqualToString:@""] || [media_name isEqualToString:@"application"]) {
+            media_name = @"data";
+        }
         NSString *ssrc = [description objectForKey:@"ssrc"];
         
         //Content
@@ -531,9 +553,6 @@
         [descElement addAttributeWithName:@"xmlns" stringValue:@"urn:xmpp:jingle:apps:rtp:1"];
         if ([media_name isEqualToString:@"data"]) {
             [descElement addAttributeWithName:@"media" stringValue:@"application"];
-            
-            NSXMLElement *muxElement = [NSXMLElement elementWithName:@"rtcp-mux"];
-            [descElement addChild:muxElement];
         } else {
             [descElement addAttributeWithName:@"media" stringValue:media_name];
         }
@@ -556,12 +575,6 @@
             [payloadTypeElement addAttributeWithName:@"clockrate" stringValue:clockrate];
             [payloadTypeElement addAttributeWithName:@"id" stringValue:strID];
             [payloadTypeElement addAttributeWithName:@"channels" stringValue:channels];
-            
-            if ([name isEqualToString:@"H264"] || [name isEqualToString:@"VP8"] || [name isEqualToString:@"VP89"]) {
-                NSXMLElement *bitrateElement = [NSXMLElement elementWithName:@"parameter"];
-                [bitrateElement addAttributeWithName:@"name" stringValue:@"x-google-start-bitrate"];
-                [bitrateElement addAttributeWithName:@"value" stringValue:@"800"];
-            }
             
             // Add rtcp-fb if it exists
             NSArray *rtcpfblist = [payload objectForKey:@"feedback"];
@@ -590,7 +603,7 @@
                 NSString *key = [parameter objectForKey:@"key"];
                 NSString *value = [parameter objectForKey:@"value"];
                 
-                NSXMLElement *parameterElement = [NSXMLElement elementWithName:@"parameters"];
+                NSXMLElement *parameterElement = [NSXMLElement elementWithName:@"parameter"];
                 [parameterElement addAttributeWithName:@"value" stringValue:value];
                 [parameterElement addAttributeWithName:@"name" stringValue:key];
                 
@@ -646,6 +659,10 @@
                 [sourceElement addAttributeWithName:@"ssrc" stringValue:ssrc];
                 [sourceElement addAttributeWithName:@"xmlns" stringValue:@"urn:xmpp:jingle:apps:rtp:ssma:0"];
                 
+                NSXMLElement *infoElement = [NSXMLElement elementWithName:@"ssrc-info" xmlns:@"http://jitsi.org/jitmeet"];
+                [infoElement addAttributeWithName:@"owner" stringValue:[initiator full]];
+                [sourceElement addChild:infoElement];
+                
                 NSArray *parameters = [source objectForKey:@"parameters"];
                 
                 for (int p=0; p< [parameters count]; p++)
@@ -662,52 +679,10 @@
                     [paraElement addAttributeWithName:@"name" stringValue:key];
                     
                     [sourceElement addChild:paraElement];
-                    
-                    NSXMLElement *infoElement = [NSXMLElement elementWithName:@"ssrc-info" xmlns:@"http://jitsi.org/jitmeet"];
-                    [infoElement addAttributeWithName:@"owner" stringValue:[initiator full]];
-                    [sourceElement addChild:infoElement];
-                    
-                }
-                
-                NSString *msid = [content objectForKey:@"msid"];
-                if (msid) {
-                    NSXMLElement *msidElement = [NSXMLElement elementWithName:@"parameter"];
-                    [msidElement addAttributeWithName:@"name" stringValue:@"msid"];
-                    [msidElement addAttributeWithName:@"value" stringValue:msid];
-                    [sourceElement addChild:msidElement];
-                }
-                
-                NSString *mslabel = [content objectForKey:@"mslabel"];
-                if (mslabel) {
-                    NSXMLElement *mslabelElement = [NSXMLElement elementWithName:@"parameter"];
-                    [mslabelElement addAttributeWithName:@"name" stringValue:@"mslabel"];
-                    [mslabelElement addAttributeWithName:@"value" stringValue:mslabel];
-                    [sourceElement addChild:mslabelElement];
-                }
-                
-                NSString *label = [content objectForKey:@"label"];
-                if (label) {
-                    NSXMLElement *labelElement = [NSXMLElement elementWithName:@"parameter"];
-                    [labelElement addAttributeWithName:@"name" stringValue:@"label"];
-                    [labelElement addAttributeWithName:@"value" stringValue:label];
-                    [sourceElement addChild:labelElement];
                 }
                 
                 [descElement addChild:sourceElement];
             }
-            
-            /*NSXMLElement *ssrcElement = [NSXMLElement elementWithName:@"ssrc"];
-            [ssrcElement addAttributeWithName:@"xmlns" stringValue:@"http://estos.de/ns/ssrc"];
-            
-            NSArray *keys = [sourceData allKeys];
-            for (int a=0; a< [keys count]; a++)
-            {
-                NSString *key = [keys objectAtIndex: a];
-                NSString *value = [sourceData objectForKey: key];
-                
-                [ssrcElement addAttributeWithName:key stringValue:value];
-            }
-            [descElement addChild:ssrcElement];*/
             
         }
         
@@ -742,9 +717,6 @@
         //Transport
         NSDictionary* transport = [content objectForKey:@"transport"];
         NSXMLElement *transElement = [NSXMLElement elementWithName:@"transport"];
-        
-        NSXMLElement *mux = [NSXMLElement elementWithName:@"rtcp-mux"];
-        [transElement addChild:mux];
         
         transElement1 = nil;
         transElement1 = [NSXMLElement elementWithName:@"transport"];
@@ -898,6 +870,13 @@
     [canElement addAttributeWithName:@"network" stringValue:network];
     [canElement addAttributeWithName:@"id" stringValue:did];
     
+    if ([type isEqualToString:@"srflx"] || [type isEqualToString:@"prflx"] || [type isEqualToString:@"relay"]) {
+        NSString *relAddr = candidate[@"relAddr"];
+        NSString *relPort = candidate[@"relPort"];
+        [canElement addAttributeWithName:@"rel-addr" stringValue:relAddr];
+        [canElement addAttributeWithName:@"rel-port" stringValue:relPort];
+    }
+    
     return canElement;
 }
 
@@ -956,6 +935,13 @@
         [canElement addAttributeWithName:@"generation" stringValue:generation];
         [canElement addAttributeWithName:@"network" stringValue:network];
         [canElement addAttributeWithName:@"id" stringValue:did];
+        
+        if ([type isEqualToString:@"srflx"] || [type isEqualToString:@"prflx"] || [type isEqualToString:@"relay"]) {
+            NSString *relAddr = candidate[@"relAddr"];
+            NSString *relPort = candidate[@"relPort"];
+            [canElement addAttributeWithName:@"rel-addr" stringValue:relAddr];
+            [canElement addAttributeWithName:@"rel-port" stringValue:relPort];
+        }
         
         [transElement addChild:canElement];
         
