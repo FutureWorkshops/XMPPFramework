@@ -20,7 +20,6 @@
 #import "XMPPJingle.h"
 #import "XMPPJingleSDP.h"
 
-
 @interface XMPPJingle() <XMPPStreamDelegate>
 {
     BOOL enableLogging;
@@ -168,22 +167,26 @@
     //[jsonDict setValue:iq.toStr forKey:@"to"];
     [jsonDict setValue:to forKey:@"to"];
     
-    NSString *initiator = [[iq elementForName:@"jingle"] attributeStringValueForName:@"initiator"];
+    XMPPElement *jingle = [iq elementForName:@"jingle" xmlns:XEP_0166_XMLNS];
+    
+    NSString *initiator = [jingle attributeStringValueForName:@"initiator"];
     if (initiator) {
         [jsonDict setValue:initiator forKey:@"initiator"];
     }
     
     // Set the sid if it exists
-    NSString *sessionid = [[iq elementForName:@"jingle"] attributeStringValueForName:@"sid"  ];
+    NSString *sessionid = [jingle attributeStringValueForName:@"sid"];
     if (sessionid)
     {
         SID = sessionid;
     }
     
-    NSString *bridgeSession = [[[iq elementForName:@"jingle"] elementForName:@"bridge-session" xmlns:@"http://jitsi.org/protocol/focus"] attributeStringValueForName:@"id"];
+    NSString *bridgeSession = [[jingle elementForName:@"bridge-session" xmlns:@"http://jitsi.org/protocol/focus"] attributeStringValueForName:@"id"];
     if (bridgeSession) {
         [jsonDict setValue:bridgeSession forKey:@"bridge-session"];
     }
+    
+    [jsonDict setValue:jingle.XMLString forKey:@"jingle"];
     // post the message to delegate
     [self.delegate didReceiveSessionMsg:sid type:@"session-initiate" data:jsonDict];
     
@@ -291,21 +294,24 @@
 // Called when a source-add message is received
 - (void)onSourceAdd:(XMPPIQ *)iq
 {
-    // Parse SDP
-    /*NSString *sdp = [sdpUtil XMPPToSDP:iq];
-    
-    // Prepare the JSON dictionary
-    NSMutableDictionary * jsonDict = [[NSMutableDictionary alloc] init];
-    [jsonDict setValue:sdp forKey:@"sdp"];
+    XMPPElement *jingle = [iq elementForName:@"jingle" xmlns:XEP_0166_XMLNS];
+    NSMutableDictionary *jsonDict = [[NSMutableDictionary alloc] init];
+    [jsonDict setValue:jingle.XMLString forKey:@"jingle"];
     [jsonDict setValue:iq.fromStr forKey:@"from"];
-    [jsonDict setValue:iq.toStr forKey:@"to"];*/
+    [jsonDict setValue:iq.toStr forKey:@"to"];
     
-   [self.delegate didReceiveSessionMsg:nil type:@"source-add" data:nil];
+    [self.delegate didReceiveSessionMsg:nil type:@"source-add" data:jsonDict];
 }
 
 - (void)onSourceRemove:(XMPPIQ *)iq
 {
-   [self.delegate didReceiveSessionMsg:nil type:@"source-remove" data:nil];
+    XMPPElement *jingle = [iq elementForName:@"jingle" xmlns:XEP_0166_XMLNS];
+    NSMutableDictionary *jsonDict = [[NSMutableDictionary alloc] init];
+    [jsonDict setValue:jingle.XMLString forKey:@"jingle"];
+    [jsonDict setValue:iq.fromStr forKey:@"from"];
+    [jsonDict setValue:iq.toStr forKey:@"to"];
+    
+   [self.delegate didReceiveSessionMsg:nil type:@"source-remove" data:jsonDict];
 }
 
 # pragma mark - XMPP stream methods
@@ -320,8 +326,6 @@
 // Called when a iq message is received
 - (BOOL)xmppStream:(XMPPStream *)sender didReceiveIQ:(XMPPIQ *)iq
 {
-    NSLog(@"XMPP : Jingle : didReceiveIQ %@", iq.description);
-
     // Check if it is a jingle message
     NSXMLElement *jingleElement = [iq elementForName:@"jingle" xmlns:XEP_0166_XMLNS];
     if (jingleElement == nil) {
