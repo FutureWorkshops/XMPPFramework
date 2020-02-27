@@ -556,8 +556,6 @@
         } else {
             [descElement addAttributeWithName:@"media" stringValue:media_name];
         }
-        if(ssrc)
-            [descElement addAttributeWithName:@"ssrc" stringValue:ssrc];
         
         //Payloads
         NSArray* payloads = [description objectForKey:@"payloads"];
@@ -681,6 +679,15 @@
                     [sourceElement addChild:paraElement];
                 }
                 
+                NSString *msid = [content objectForKey:@"msid"];
+                if (msid) {
+                    NSXMLElement *paraElement = [NSXMLElement elementWithName:@"parameter"];
+                    [paraElement addAttributeWithName:@"value" stringValue:msid];
+                    [paraElement addAttributeWithName:@"name" stringValue:@"msid"];
+                    
+                    [sourceElement addChild:paraElement];
+                }
+                
                 [descElement addChild:sourceElement];
             }
             
@@ -700,13 +707,11 @@
             NSDictionary *hdrext = [hdrexts objectAtIndex:z];
             NSString *uri = [hdrext objectForKey:@"uri"];
             NSString *strId = [hdrext objectForKey:@"id"];
-            NSString *senders = [hdrext objectForKey:@"senders"];
             
             NSXMLElement *hdrextElement = [NSXMLElement elementWithName:@"rtp-hdrext"];
             [hdrextElement addAttributeWithName:@"xmlns" stringValue:@"urn:xmpp:jingle:apps:rtp:rtp-hdrext:0"];
             [hdrextElement addAttributeWithName:@"uri" stringValue:uri];
             [hdrextElement addAttributeWithName:@"id" stringValue:strId];
-            [hdrextElement addAttributeWithName:@"senders" stringValue:senders];
             
             [descElement addChild:hdrextElement];
         }
