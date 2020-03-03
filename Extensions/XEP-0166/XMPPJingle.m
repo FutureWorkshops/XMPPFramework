@@ -96,6 +96,75 @@
     enableLogging = YES;
 }
 
+- (NSString *) addSources:(NSString *)sources toJingle:(NSString *)jingle error:(NSError **)error
+{
+    XMPPElement *jingleElement = [[XMPPElement alloc] initWithXMLString:jingle error:error];
+    if (jingleElement == nil) {
+        return jingle;
+    }
+    
+    XMPPElement *sourceElement = [[XMPPElement alloc] initWithXMLString:sources error:error];
+    if (sourceElement == nil) {
+        return jingle;
+    }
+    
+    NSArray<XMPPElement *> *contents = [sourceElement elementsForName:@"content"];
+    if (contents == nil || contents.count == 0) {
+        return jingle;
+    }
+    
+    for (XMPPElement *content in contents) {
+        NSString *name = [content attributeStringValueForName:@"name"];
+        if (name == nil) { continue; }
+        
+        XMPPElement *description = [content elementForName:@"description" xmlns:@"urn:xmpp:jingle:apps:rtp:1"];
+        if (description == nil) { continue; }
+        
+        NSArray<XMPPElement *> *newSources = [description elementsForName:@"source"];
+        if (newSources == nil || newSources.count == 0) { continue; }
+        
+        XMPPElement *originalDescription = [self descriptionElementForContentNamed:name onJingle:jingleElement];
+        if (originalDescription == nil) { continue; }
+        
+        for (XMPPElement *newSource in newSources) {
+            [originalDescription addChild:[newSource copy]];
+        }
+    }
+    
+    return [jingleElement XMLString];
+}
+
+- (BOOL) sourceIsComplete:(XMPPElement *)source {
+    NSArray<XMPPElement *> *parameters = [source elementsForName:@"parameter"];
+    for (XMPPElement *parameter in parameters) {
+        NSString *name = [parameter attributeStringValueForName:@"name"];
+        if ([name isEqualToString:@"msid"]) {
+            return true;
+        }
+    }
+    
+    return false;
+}
+
+- (XMPPElement *)descriptionElementForContentNamed:(NSString *)contentName onJingle:(XMPPElement *)jingle {
+    NSArray<XMPPElement *> *contents = [jingle elementsForName:@"content"];
+    if (contents == nil || contents.count == 0) {
+        return nil;
+    }
+    
+    for (XMPPElement *content in contents) {
+        NSString *name = [content attributeStringValueForName:@"name"];
+        if (![name isEqualToString:contentName]) { continue; }
+        
+        XMPPElement *description = [content elementForName:@"description" xmlns:@"urn:xmpp:jingle:apps:rtp:1"];
+        if (description) {
+            return description;
+        }
+    }
+    
+    return nil;
+}
+
 // For Action (type) attribute: "session-accept", "session-info", "session-initiate", "session-terminate"
 - (BOOL)sendSessionMsg:(NSString *)type  data:(NSDictionary *)data target:(XMPPJID *)target
 {
