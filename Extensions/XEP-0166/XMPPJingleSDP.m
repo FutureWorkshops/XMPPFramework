@@ -157,10 +157,6 @@
                 [sdp addObject:@"generation"];
                 [sdp addObject:[canElement attributeStringValueForName:@"generation"] ?: @"0"];
                 
-                if (ufrag) {
-                    [sdp addObject:[NSString stringWithFormat:@"ufrag %@", ufrag]];
-                }
-                
                 if ([canElement attributeStringValueForName:@"network"]) {
                     [sdp addObject:[NSString stringWithFormat:@"network-id %@", [canElement attributeStringValueForName:@"network"]]];
                 }
@@ -232,12 +228,14 @@
     }
     
     if (![name isEqualToString:@"data"] && ![name isEqualToString:@"application"]) {
-        [contentString appendFormat:@"a=msid:mixedmslabel mixedlabel%@0\r\n",name];
-        // Next line is rtcp-mux
-        if ([[content elementForName:@"description"] elementForName:@"rtcp-mux"] )
-        {
-            [contentString appendString:@"a=rtcp-mux\r\n"];
-        }
+        //[contentString appendFormat:@"a=msid:mixedmslabel mixedlabel%@0\r\n",name];
+    }
+    
+    // Next line is rtcp-mux
+    if ([[content elementForName:@"description"] elementForName:@"rtcp-mux"] )
+    {
+        [contentString appendString:@"a=rtcp-mux\r\n"];
+        [contentString appendString:@"a=rtcp-rsiz\r\n"];
     }
     
     // Next line is crypto
@@ -290,6 +288,10 @@
             {
                 NSString *name = [[parameters objectAtIndex:i] attributeStringValueForName:@"name"];
                 NSString *value = [[parameters objectAtIndex:i] attributeStringValueForName:@"value"];
+                
+                if([value hasSuffix:@";"]) {
+                    value = [value substringToIndex:value.length - 1];
+                }
                 
                 if (name && value)
                 {
@@ -416,11 +418,20 @@
                         [sdp addObject:[canElement attributeStringValueForName:@"relAddr"]];
                         [sdp addObject:@"rport"];
                         [sdp addObject:[canElement attributeStringValueForName:@"relPort"]];
+                    } else if ([canElement attributeStringValueForName:@"rel-addr"] && [canElement attributeStringValueForName:@"rel-port"]) {
+                        [sdp addObject:@"raddr"];
+                        [sdp addObject:[canElement attributeStringValueForName:@"rel-addr"]];
+                        [sdp addObject:@"rport"];
+                        [sdp addObject:[canElement attributeStringValueForName:@"rel-port"]];
                     }
                 }
                 
                 [sdp addObject:@"generation"];
                 [sdp addObject:[canElement attributeStringValueForName:@"generation"] ?: @"0"];
+                
+                if ([canElement attributeStringValueForName:@"network"]) {
+                    [sdp addObject:[NSString stringWithFormat:@"network-id %@", [canElement attributeStringValueForName:@"network"]]];
+                }
                 
                 [dict setObject:[@"a=candidate:" stringByAppendingString:[sdp componentsJoinedByString:@" "]] forKey:@"candidate"]; ;
 
@@ -656,10 +667,6 @@
                 NSXMLElement *sourceElement = [NSXMLElement elementWithName:@"source"];
                 [sourceElement addAttributeWithName:@"ssrc" stringValue:ssrc];
                 [sourceElement addAttributeWithName:@"xmlns" stringValue:@"urn:xmpp:jingle:apps:rtp:ssma:0"];
-                
-                NSXMLElement *infoElement = [NSXMLElement elementWithName:@"ssrc-info" xmlns:@"http://jitsi.org/jitmeet"];
-                [infoElement addAttributeWithName:@"owner" stringValue:[initiator full]];
-                [sourceElement addChild:infoElement];
                 
                 NSArray *parameters = [source objectForKey:@"parameters"];
                 
