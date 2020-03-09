@@ -39,6 +39,8 @@ NS_ASSUME_NONNULL_BEGIN
 
 - (NSXMLElement*)getVideoContent:(NSString *)type  data:(NSDictionary *)data target:(XMPPJID *)target;
 
+- (NSString *) addSources:(NSString *)sources toJingle:(NSString *)jingle error:(NSError **)error;
+
 @end
 
 @protocol XMPPJingleDelegate <NSObject>

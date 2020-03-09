@@ -20,7 +20,6 @@
 #import "XMPPJingle.h"
 #import "XMPPJingleSDP.h"
 
-
 @interface XMPPJingle() <XMPPStreamDelegate>
 {
     BOOL enableLogging;
@@ -97,6 +96,75 @@
     enableLogging = YES;
 }
 
+- (NSString *) addSources:(NSString *)sources toJingle:(NSString *)jingle error:(NSError **)error
+{
+    XMPPElement *jingleElement = [[XMPPElement alloc] initWithXMLString:jingle error:error];
+    if (jingleElement == nil) {
+        return jingle;
+    }
+    
+    XMPPElement *sourceElement = [[XMPPElement alloc] initWithXMLString:sources error:error];
+    if (sourceElement == nil) {
+        return jingle;
+    }
+    
+    NSArray<XMPPElement *> *contents = [sourceElement elementsForName:@"content"];
+    if (contents == nil || contents.count == 0) {
+        return jingle;
+    }
+    
+    for (XMPPElement *content in contents) {
+        NSString *name = [content attributeStringValueForName:@"name"];
+        if (name == nil) { continue; }
+        
+        XMPPElement *description = [content elementForName:@"description" xmlns:@"urn:xmpp:jingle:apps:rtp:1"];
+        if (description == nil) { continue; }
+        
+        NSArray<XMPPElement *> *newSources = [description elementsForName:@"source"];
+        if (newSources == nil || newSources.count == 0) { continue; }
+        
+        XMPPElement *originalDescription = [self descriptionElementForContentNamed:name onJingle:jingleElement];
+        if (originalDescription == nil) { continue; }
+        
+        for (XMPPElement *newSource in newSources) {
+            [originalDescription addChild:[newSource copy]];
+        }
+    }
+    
+    return [jingleElement XMLString];
+}
+
+- (BOOL) sourceIsComplete:(XMPPElement *)source {
+    NSArray<XMPPElement *> *parameters = [source elementsForName:@"parameter"];
+    for (XMPPElement *parameter in parameters) {
+        NSString *name = [parameter attributeStringValueForName:@"name"];
+        if ([name isEqualToString:@"msid"]) {
+            return true;
+        }
+    }
+    
+    return false;
+}
+
+- (XMPPElement *)descriptionElementForContentNamed:(NSString *)contentName onJingle:(XMPPElement *)jingle {
+    NSArray<XMPPElement *> *contents = [jingle elementsForName:@"content"];
+    if (contents == nil || contents.count == 0) {
+        return nil;
+    }
+    
+    for (XMPPElement *content in contents) {
+        NSString *name = [content attributeStringValueForName:@"name"];
+        if (![name isEqualToString:contentName]) { continue; }
+        
+        XMPPElement *description = [content elementForName:@"description" xmlns:@"urn:xmpp:jingle:apps:rtp:1"];
+        if (description) {
+            return description;
+        }
+    }
+    
+    return nil;
+}
+
 // For Action (type) attribute: "session-accept", "session-info", "session-initiate", "session-terminate"
 - (BOOL)sendSessionMsg:(NSString *)type  data:(NSDictionary *)data target:(XMPPJID *)target
 {
@@ -168,22 +236,26 @@
     //[jsonDict setValue:iq.toStr forKey:@"to"];
     [jsonDict setValue:to forKey:@"to"];
     
-    NSString *initiator = [[iq elementForName:@"jingle"] attributeStringValueForName:@"initiator"];
+    XMPPElement *jingle = [iq elementForName:@"jingle" xmlns:XEP_0166_XMLNS];
+    
+    NSString *initiator = [jingle attributeStringValueForName:@"initiator"];
     if (initiator) {
         [jsonDict setValue:initiator forKey:@"initiator"];
     }
     
     // Set the sid if it exists
-    NSString *sessionid = [[iq elementForName:@"jingle"] attributeStringValueForName:@"sid"  ];
+    NSString *sessionid = [jingle attributeStringValueForName:@"sid"];
     if (sessionid)
     {
         SID = sessionid;
     }
     
-    NSString *bridgeSession = [[[iq elementForName:@"jingle"] elementForName:@"bridge-session" xmlns:@"http://jitsi.org/protocol/focus"] attributeStringValueForName:@"id"];
+    NSString *bridgeSession = [[jingle elementForName:@"bridge-session" xmlns:@"http://jitsi.org/protocol/focus"] attributeStringValueForName:@"id"];
     if (bridgeSession) {
         [jsonDict setValue:bridgeSession forKey:@"bridge-session"];
     }
+    
+    [jsonDict setValue:jingle.XMLString forKey:@"jingle"];
     // post the message to delegate
     [self.delegate didReceiveSessionMsg:sid type:@"session-initiate" data:jsonDict];
     
@@ -291,21 +363,24 @@
 // Called when a source-add message is received
 - (void)onSourceAdd:(XMPPIQ *)iq
 {
-    // Parse SDP
-    /*NSString *sdp = [sdpUtil XMPPToSDP:iq];
-    
-    // Prepare the JSON dictionary
-    NSMutableDictionary * jsonDict = [[NSMutableDictionary alloc] init];
-    [jsonDict setValue:sdp forKey:@"sdp"];
+    XMPPElement *jingle = [iq elementForName:@"jingle" xmlns:XEP_0166_XMLNS];
+    NSMutableDictionary *jsonDict = [[NSMutableDictionary alloc] init];
+    [jsonDict setValue:jingle.XMLString forKey:@"jingle"];
     [jsonDict setValue:iq.fromStr forKey:@"from"];
-    [jsonDict setValue:iq.toStr forKey:@"to"];*/
+    [jsonDict setValue:iq.toStr forKey:@"to"];
     
-   [self.delegate didReceiveSessionMsg:nil type:@"source-add" data:nil];
+    [self.delegate didReceiveSessionMsg:nil type:@"source-add" data:jsonDict];
 }
 
 - (void)onSourceRemove:(XMPPIQ *)iq
 {
-   [self.delegate didReceiveSessionMsg:nil type:@"source-remove" data:nil];
+    XMPPElement *jingle = [iq elementForName:@"jingle" xmlns:XEP_0166_XMLNS];
+    NSMutableDictionary *jsonDict = [[NSMutableDictionary alloc] init];
+    [jsonDict setValue:jingle.XMLString forKey:@"jingle"];
+    [jsonDict setValue:iq.fromStr forKey:@"from"];
+    [jsonDict setValue:iq.toStr forKey:@"to"];
+    
+   [self.delegate didReceiveSessionMsg:nil type:@"source-remove" data:jsonDict];
 }
 
 # pragma mark - XMPP stream methods
@@ -320,8 +395,6 @@
 // Called when a iq message is received
 - (BOOL)xmppStream:(XMPPStream *)sender didReceiveIQ:(XMPPIQ *)iq
 {
-    NSLog(@"XMPP : Jingle : didReceiveIQ %@", iq.description);
-
     // Check if it is a jingle message
     NSXMLElement *jingleElement = [iq elementForName:@"jingle" xmlns:XEP_0166_XMLNS];
     if (jingleElement == nil) {

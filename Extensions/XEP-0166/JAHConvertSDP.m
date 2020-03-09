@@ -106,6 +106,10 @@
 
         NSMutableArray* sctp = [NSMutableArray array];
         transport[@"sctp"] = sctp;
+        
+        if ([[self class] linesForPrefix:@"a=rtcp-mux" mediaLines:mediaLines sessionLines:nil]) {
+            description[@"mux"] = @YES;
+        }
     } else {
         description[@"descType"] = @"rtp";
         description[@"media"] = mLine[@"media"];
@@ -173,6 +177,11 @@
 
         NSArray* ssrcLines = [[self class] linesForPrefix:@"a=ssrc:" mediaLines:mediaLines sessionLines:nil];
         description[@"sources"] = [[self class] sourcesForLines:ssrcLines];
+        
+        NSArray *sourceGroup = [[self class] linesForPrefix:@"a=ssrc-group:" mediaLines:mediaLines sessionLines:nil];
+        if (sourceGroup) {
+            description[@"sourceGroups"] = [[self class] sourceGroupsForLine:sourceGroup];
+        }
     }
 
     // transport specific attributes
@@ -444,6 +453,33 @@
                             @"sources": parts}];
     }
     return parsed;
+}
+
++ (NSArray *)sourceGroupsForLine:(NSArray *)lines {
+    
+    NSMutableArray *groups = [[NSMutableArray alloc] initWithCapacity:lines.count];
+    
+    for (NSString *line in lines) {
+        NSString *cleanline = [[line substringFromIndex:13] stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
+        if (cleanline.length == 0) {
+            return @{};
+        }
+        
+        NSArray *components = [cleanline componentsSeparatedByString:@" "];
+        if (components.count < 2) {
+            return @{};
+        }
+        
+        NSString *semantic = [components firstObject];
+        NSMutableArray *sourceIds = [[NSMutableArray alloc] init];
+        for (int i = 1; i < components.count; ++i) {
+            [sourceIds addObject:[components objectAtIndex:i]];
+        }
+        
+        [groups addObject:@{@"semantic": semantic, @"sources": sourceIds}];
+    }
+    
+    return groups;
 }
 
 + (NSArray*)sourcesForLines:(NSArray*)lines {

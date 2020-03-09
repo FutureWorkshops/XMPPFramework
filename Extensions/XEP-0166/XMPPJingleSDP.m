@@ -9,41 +9,24 @@
 #import "JAHConvertSDP.h"
 #define SDP_GROUP_XMLNS @"urn:xmpp:jingle:apps:grouping:0"
 
+#define SDP_APPLICATION_MEDIA_NAME @"data"
+
 @implementation XMPPJingleSDPUtil
 
-- (NSString *)parseGroups:(XMPPIQ *)iq
+- (NSString *)parseGroups:(XMPPElement *)jElement
 {
     NSMutableString *groupStr = [[NSMutableString alloc]init]; // TO be set once ready
     NSMutableArray *names = [[NSMutableArray alloc] init];
 
-    // Get group content
-   /* NSArray *groups = [[iq elementForName:@"jingle"] elementForName:@"group"];
-    if (groups != nil)
-    {
-        NSLog(@"Error in retrieving groups");
-    }
-    
-    NSMutableArray *names = [[NSMutableArray alloc] init];
-    NSXMLElement *group;
-    if ([groups count] > 0)
-    {
-        group = [[iq elementForName:@"jingle"] elementForName:@"group"];
-    }
-    else
-    {
-        group = (NSXMLElement *)[groups objectAtIndex:0];   // TBD: for multiple groups
-    }*/
-    NSXMLElement *jElement;
     NSXMLElement *group;
 
-    jElement = [iq elementForName:@"jingle" xmlns:XEP_0166_XMLNS];
     if (jElement == nil)
     {
         NSLog(@"XMPP Parsing: No Jingle element");
 
         return NULL;
     }
-    group = [[iq elementForName:@"jingle"] elementForName:@"group"];
+    group = [jElement elementForName:@"group"];
     if (group == nil)
     {
         NSLog(@"XMPP Parsing: No group element");
@@ -90,7 +73,7 @@
     NSArray *codeclist = [[content elementForName:@"description"] elementsForName:@"payload-type"];
 
     NSString *name = (NSString *)[content attributeStringValueForName:@"name"];
-    if ([name isEqualToString:@"data"]) {
+    if ([name isEqualToString:SDP_APPLICATION_MEDIA_NAME]) {
         [contentString appendFormat:@"m=application 1 UDP/DTLS/SCTP webrtc-datachannel"];
     } else {
         [contentString appendFormat:@"m=%@ 1 RTP/SAVPF", name];
@@ -156,10 +139,6 @@
                 
                 [sdp addObject:@"generation"];
                 [sdp addObject:[canElement attributeStringValueForName:@"generation"] ?: @"0"];
-                
-                if (ufrag) {
-                    [sdp addObject:[NSString stringWithFormat:@"ufrag %@", ufrag]];
-                }
                 
                 if ([canElement attributeStringValueForName:@"network"]) {
                     [sdp addObject:[NSString stringWithFormat:@"network-id %@", [canElement attributeStringValueForName:@"network"]]];
@@ -231,13 +210,10 @@
         }
     }
     
-    if (![name isEqualToString:@"data"] && ![name isEqualToString:@"application"]) {
-        [contentString appendFormat:@"a=msid:mixedmslabel mixedlabel%@0\r\n",name];
-        // Next line is rtcp-mux
-        if ([[content elementForName:@"description"] elementForName:@"rtcp-mux"] )
-        {
-            [contentString appendString:@"a=rtcp-mux\r\n"];
-        }
+    // Next line is rtcp-mux
+    if ([[content elementForName:@"description"] elementForName:@"rtcp-mux"] )
+    {
+        [contentString appendString:@"a=rtcp-mux\r\n"];
     }
     
     // Next line is crypto
@@ -290,6 +266,10 @@
             {
                 NSString *name = [[parameters objectAtIndex:i] attributeStringValueForName:@"name"];
                 NSString *value = [[parameters objectAtIndex:i] attributeStringValueForName:@"value"];
+                
+                if([value hasSuffix:@";"]) {
+                    value = [value substringToIndex:value.length - 1];
+                }
                 
                 if (name && value)
                 {
@@ -346,6 +326,21 @@
         if (label) [contentString appendFormat:@"a=ssrc:%@ label:%@\r\n", [ssrc attributeStringValueForName:@"ssrc"], label];
     }
     
+    NSArray *sourceGroups = [[content elementForName:@"description"] elementsForName:@"ssrc-group"];
+    for (NSXMLElement *group in sourceGroups) {
+        NSArray *sourceIds = [group elementsForName:@"source"];
+        NSMutableArray *idStrings = [[NSMutableArray alloc] initWithCapacity:sourceIds.count];
+        for (NSXMLElement *sourceId in sourceIds) {
+            [idStrings addObject:[sourceId attributeStringValueForName:@"ssrc"]];
+        }
+        
+        if (idStrings.count > 0) {
+            NSString *semantic = [group attributeStringValueForName:@"semantics"];
+            NSString *ids = [idStrings componentsJoinedByString:@" "];
+            [contentString appendFormat:@"a=ssrc-group:%@ %@\r\n", semantic, ids];
+        }
+    }
+    
     NSArray *sources = [[content elementForName:@"description"] elementsForName:@"source"];
     for (NSXMLElement *source in sources) {
         
@@ -364,17 +359,10 @@
             [sourceParameters setValue:value forKey:name];
         }
         
-        if ([sourceParameters objectForKey:@"label"] == nil) {
-            continue;
-        }
-        
         [sourceParameters enumerateKeysAndObjectsUsingBlock:^(NSString *  _Nonnull name, NSString *  _Nonnull value, BOOL * _Nonnull stop) {
             [contentString appendString:[NSString stringWithFormat:@"a=ssrc:%@ %@:%@\r\n", sourceId, name, value]];
         }];
     }
-    
-    
-    NSLog(@"ContentString is %@", contentString);
     
     return contentString;
 }
@@ -416,11 +404,20 @@
                         [sdp addObject:[canElement attributeStringValueForName:@"relAddr"]];
                         [sdp addObject:@"rport"];
                         [sdp addObject:[canElement attributeStringValueForName:@"relPort"]];
+                    } else if ([canElement attributeStringValueForName:@"rel-addr"] && [canElement attributeStringValueForName:@"rel-port"]) {
+                        [sdp addObject:@"raddr"];
+                        [sdp addObject:[canElement attributeStringValueForName:@"rel-addr"]];
+                        [sdp addObject:@"rport"];
+                        [sdp addObject:[canElement attributeStringValueForName:@"rel-port"]];
                     }
                 }
                 
                 [sdp addObject:@"generation"];
                 [sdp addObject:[canElement attributeStringValueForName:@"generation"] ?: @"0"];
+                
+                if ([canElement attributeStringValueForName:@"network"]) {
+                    [sdp addObject:[NSString stringWithFormat:@"network-id %@", [canElement attributeStringValueForName:@"network"]]];
+                }
                 
                 [dict setObject:[@"a=candidate:" stringByAppendingString:[sdp componentsJoinedByString:@" "]] forKey:@"candidate"]; ;
 
@@ -435,6 +432,12 @@
 
 // Utility to parser SDP from XMPP messages
 - (NSString *)XMPPToSDP:(XMPPIQ *)iq
+{
+    XMPPElement *element = [iq elementForName:@"jingle"];
+    return [self XMPPElementToSDP:element];
+}
+
+- (NSString *)XMPPElementToSDP:(XMPPElement *)iq
 {
     NSMutableString *SDP = [[NSMutableString alloc]init]; // TO be set once ready
     
@@ -460,7 +463,7 @@
     // To check if a=msid-semantic line is needed
     
     // Add media content
-    NSArray *mediaContents = [[iq elementForName:@"jingle"] elementsForName:@"content"];
+    NSArray *mediaContents = [iq elementsForName:@"content"];
     for (int i=0; i<[mediaContents count]; i++)
     {
         NSString * mediaStr = [self parseMedia:[mediaContents objectAtIndex:i]];
@@ -520,7 +523,7 @@
             NSDictionary* description = [content objectForKey:@"description"];
             NSString* media_name = [description objectForKey:@"media"];
             if (media_name == nil || [media_name isEqualToString:@""] || [media_name isEqualToString:@"application"]) {
-                media_name = @"data";
+                media_name = SDP_APPLICATION_MEDIA_NAME;
             }
             
             NSXMLElement *groupContent = [NSXMLElement elementWithName:@"content"];
@@ -538,7 +541,10 @@
         NSDictionary* description = [content objectForKey:@"description"];
         NSString* media_name = [description objectForKey:@"media"];
         if (media_name == nil || [media_name isEqualToString:@""] || [media_name isEqualToString:@"application"]) {
-            media_name = @"data";
+            media_name = SDP_APPLICATION_MEDIA_NAME;
+        }
+        if ([media_name isEqualToString:SDP_APPLICATION_MEDIA_NAME]) {
+            continue;
         }
         NSString *ssrc = [description objectForKey:@"ssrc"];
         
@@ -551,13 +557,11 @@
         //Description
         NSXMLElement *descElement = [NSXMLElement elementWithName:@"description"];
         [descElement addAttributeWithName:@"xmlns" stringValue:@"urn:xmpp:jingle:apps:rtp:1"];
-        if ([media_name isEqualToString:@"data"]) {
+        if ([media_name isEqualToString:SDP_APPLICATION_MEDIA_NAME]) {
             [descElement addAttributeWithName:@"media" stringValue:@"application"];
         } else {
             [descElement addAttributeWithName:@"media" stringValue:media_name];
         }
-        if(ssrc)
-            [descElement addAttributeWithName:@"ssrc" stringValue:ssrc];
         
         //Payloads
         NSArray* payloads = [description objectForKey:@"payloads"];
@@ -646,6 +650,26 @@
         
         if (ssrc)
         {
+            NSArray* groups = [description objectForKey:@"sourceGroups"];
+            if (groups) {
+                
+                for (NSDictionary *sourceGroups in groups) {
+                    NSString *semantic = [sourceGroups objectForKey:@"semantic"];
+                    NSArray *sourceIds = [sourceGroups objectForKey:@"sources"];
+                    
+                    NSXMLElement *semanticElement = [NSXMLElement elementWithName:@"ssrc-group"];
+                    [semanticElement addAttributeWithName:@"semantics" stringValue:semantic];
+                    [semanticElement addAttributeWithName:@"xmlns" stringValue:@"urn:xmpp:jingle:apps:rtp:ssma:0"];
+                    
+                    for (NSString *sourceId in sourceIds) {
+                        NSXMLElement *sourceElement = [NSXMLElement elementWithName:@"source"];
+                        [sourceElement addAttributeWithName:@"ssrc" stringValue:sourceId];
+                        [semanticElement addChild:sourceElement];
+                    }
+                    [descElement addChild:semanticElement];
+                }
+            }
+            
             NSArray* sources = [description objectForKey:@"sources"];
             
             NSMutableDictionary *sourceData = [[NSMutableDictionary alloc]init];
@@ -658,10 +682,6 @@
                 NSXMLElement *sourceElement = [NSXMLElement elementWithName:@"source"];
                 [sourceElement addAttributeWithName:@"ssrc" stringValue:ssrc];
                 [sourceElement addAttributeWithName:@"xmlns" stringValue:@"urn:xmpp:jingle:apps:rtp:ssma:0"];
-                
-                NSXMLElement *infoElement = [NSXMLElement elementWithName:@"ssrc-info" xmlns:@"http://jitsi.org/jitmeet"];
-                [infoElement addAttributeWithName:@"owner" stringValue:[initiator full]];
-                [sourceElement addChild:infoElement];
                 
                 NSArray *parameters = [source objectForKey:@"parameters"];
                 
@@ -700,13 +720,11 @@
             NSDictionary *hdrext = [hdrexts objectAtIndex:z];
             NSString *uri = [hdrext objectForKey:@"uri"];
             NSString *strId = [hdrext objectForKey:@"id"];
-            NSString *senders = [hdrext objectForKey:@"senders"];
             
             NSXMLElement *hdrextElement = [NSXMLElement elementWithName:@"rtp-hdrext"];
             [hdrextElement addAttributeWithName:@"xmlns" stringValue:@"urn:xmpp:jingle:apps:rtp:rtp-hdrext:0"];
             [hdrextElement addAttributeWithName:@"uri" stringValue:uri];
             [hdrextElement addAttributeWithName:@"id" stringValue:strId];
-            [hdrextElement addAttributeWithName:@"senders" stringValue:senders];
             
             [descElement addChild:hdrextElement];
         }
@@ -720,6 +738,11 @@
         
         transElement1 = nil;
         transElement1 = [NSXMLElement elementWithName:@"transport"];
+        
+        if ([description objectForKey:@"mux"] != nil)
+        {
+            [transElement addChild:[NSXMLElement elementWithName:@"rtcp-mux"]];
+        }
         
         if ([transport objectForKey:@"fingerprints"] != nil)
         {
@@ -766,6 +789,8 @@
             [stcp addAttributeWithName:@"protocol" stringValue:@"webrtc-datachannel"];
             if (maxSize) {
                 [stcp addAttributeWithName:@"streams" stringValue:maxSize];
+            } else {
+                [stcp addAttributeWithName:@"streams" stringValue:@"1024"];
             }
             [transElement addChild:stcp];
         }
@@ -827,19 +852,20 @@
         
         // Add transport to content
         [contentElement addChild:transElement];
-        
+        NSXMLElement *bundle = [[NSXMLElement alloc] initWithName:@"bundle" xmlns:@"http://estos.de/ns/bundle"];
+        [contentElement addChild:bundle];
         [jingleElement addChild:contentElement];
+    }
         
         if (bridgeSession) {
             DDXMLElement *bridge = [[XMPPElement alloc] initWithName:@"bridge-session" xmlns:@"http://jitsi.org/protocol/focus"];
             [bridge addAttributeWithName:@"id" stringValue:bridgeSession];
+            [jingleElement addChild:[bridge copy]];
         }
         
        // xmpp = jingleElement;
         
         xmpp  = [[XMPPIQ alloc]initWithType:@"set" to:target elementID:UID child:[jingleElement copy]];
-
-    }
     
     return xmpp;
 }
@@ -895,61 +921,9 @@
     [jingleElement addAttributeWithName:@"action" stringValue:action];
     [jingleElement addAttributeWithName:@"initiator" stringValue:[initiator full]];
     
-    // id
-    NSString *id = media ?: [dict objectForKey:@"id"];
-    if ( (id != nil) && ([id length] > 0))
-    {
-        NSXMLElement *contentElement = [NSXMLElement elementWithName:@"content"];
-        [contentElement addAttributeWithName:@"creator" stringValue:@"initiator"];
-//        [contentElement addAttributeWithName:@"creator" stringValue:@"responder"];
-        [contentElement addAttributeWithName:@"name" stringValue:id];
-        
-        //NSXMLElement *transElement = transElement1;
-        
-        NSXMLElement *transElement = [NSXMLElement elementWithName:@"transport"];
-        [transElement addAttributeWithName:@"xmlns" stringValue:@"urn:xmpp:jingle:transports:ice-udp:1"];
-        [transElement addAttributeWithName:@"ufrag" stringValue:gUfrag];
-        [transElement addAttributeWithName:@"pwd" stringValue:gPwd];
-        
-        
-        NSXMLElement *canElement = [NSXMLElement elementWithName:@"candidate"];
-        
-        NSString *foundation = [candidate objectForKey:@"foundation"];
-        NSString *component = [candidate objectForKey:@"component"];
-        NSString *protocol = [candidate objectForKey:@"protocol"];
-        NSString *priority = [candidate objectForKey:@"priority"];
-        NSString *ip = [candidate objectForKey:@"ip"];
-        NSString *port = [candidate objectForKey:@"port"];
-        NSString *type = [candidate objectForKey:@"type"];
-        NSString *generation = [candidate objectForKey:@"generation"];
-        NSString *network = [candidate objectForKey:@"network"];
-        NSString *did = [candidate objectForKey:@"id"];
-
-        [canElement addAttributeWithName:@"foundation" stringValue:foundation];
-        [canElement addAttributeWithName:@"component" stringValue:component];
-        [canElement addAttributeWithName:@"protocol" stringValue:protocol];
-        [canElement addAttributeWithName:@"priority" stringValue:priority];
-        [canElement addAttributeWithName:@"ip" stringValue:ip];
-        [canElement addAttributeWithName:@"port" stringValue:port];
-        [canElement addAttributeWithName:@"type" stringValue:type];
-        [canElement addAttributeWithName:@"generation" stringValue:generation];
-        [canElement addAttributeWithName:@"network" stringValue:network];
-        [canElement addAttributeWithName:@"id" stringValue:did];
-        
-        if ([type isEqualToString:@"srflx"] || [type isEqualToString:@"prflx"] || [type isEqualToString:@"relay"]) {
-            NSString *relAddr = candidate[@"relAddr"];
-            NSString *relPort = candidate[@"relPort"];
-            [canElement addAttributeWithName:@"rel-addr" stringValue:relAddr];
-            [canElement addAttributeWithName:@"rel-port" stringValue:relPort];
-        }
-        
-        [transElement addChild:canElement];
-        
-        [transElement addChild:[fprElement1 copy]];
-        
-        [contentElement addChild:transElement];
-        [jingleElement addChild:contentElement];
-
+    NSString *mediaId = media ?: [dict objectForKey:@"id"];
+    if (mediaId) {
+        [jingleElement addChild:[self parseCandidate:candidate forMedia:mediaId]];
     }
     
     xmpp  = [[XMPPIQ alloc]initWithType:@"set" to:target elementID:UID child:[jingleElement copy]];
@@ -957,6 +931,60 @@
     return xmpp;
 
 }
+
+- (NSXMLElement *)parseCandidate:(NSDictionary *)candidate forMedia:(NSString *)media {
+    
+    NSXMLElement *contentElement = [NSXMLElement elementWithName:@"content"];
+    [contentElement addAttributeWithName:@"creator" stringValue:@"responder"];
+    [contentElement addAttributeWithName:@"name" stringValue:media];
+    
+    NSXMLElement *transElement = [NSXMLElement elementWithName:@"transport"];
+    [transElement addAttributeWithName:@"xmlns" stringValue:@"urn:xmpp:jingle:transports:ice-udp:1"];
+    [transElement addAttributeWithName:@"ufrag" stringValue:gUfrag];
+    [transElement addAttributeWithName:@"pwd" stringValue:gPwd];
+    
+    
+    NSXMLElement *canElement = [NSXMLElement elementWithName:@"candidate"];
+    
+    NSString *foundation = [candidate objectForKey:@"foundation"];
+    NSString *component = [candidate objectForKey:@"component"];
+    NSString *protocol = [candidate objectForKey:@"protocol"];
+    NSString *priority = [candidate objectForKey:@"priority"];
+    NSString *ip = [candidate objectForKey:@"ip"];
+    NSString *port = [candidate objectForKey:@"port"];
+    NSString *type = [candidate objectForKey:@"type"];
+    NSString *generation = [candidate objectForKey:@"generation"];
+    NSString *network = [candidate objectForKey:@"network"];
+    NSString *did = [candidate objectForKey:@"id"];
+
+    [canElement addAttributeWithName:@"foundation" stringValue:foundation];
+    [canElement addAttributeWithName:@"component" stringValue:component];
+    [canElement addAttributeWithName:@"protocol" stringValue:protocol];
+    [canElement addAttributeWithName:@"priority" stringValue:priority];
+    [canElement addAttributeWithName:@"ip" stringValue:ip];
+    [canElement addAttributeWithName:@"port" stringValue:port];
+    [canElement addAttributeWithName:@"type" stringValue:type];
+    [canElement addAttributeWithName:@"generation" stringValue:generation];
+    [canElement addAttributeWithName:@"network" stringValue:network];
+    [canElement addAttributeWithName:@"id" stringValue:did];
+    
+    if ([type isEqualToString:@"srflx"] || [type isEqualToString:@"prflx"] || [type isEqualToString:@"relay"]) {
+        NSString *relAddr = candidate[@"relAddr"];
+        NSString *relPort = candidate[@"relPort"];
+        [canElement addAttributeWithName:@"rel-addr" stringValue:relAddr];
+        [canElement addAttributeWithName:@"rel-port" stringValue:relPort];
+    }
+    
+    [transElement addChild:canElement];
+    
+    [transElement addChild:[fprElement1 copy]];
+    
+    [contentElement addChild:transElement];
+    
+    return contentElement;
+}
+
+
 - (NSString*)find_line:(NSString*)haystack  needle:(NSString*)needle
 {
     NSArray* lines = [haystack componentsSeparatedByString: @"\r\n"];

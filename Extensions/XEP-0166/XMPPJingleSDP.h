@@ -29,6 +29,7 @@
 - (XMPPIQ *)CandidateToXMPP:(NSDictionary *)dict media:(NSString *)media action:(NSString *)action initiator:(XMPPJID *)initiator target:(XMPPJID *)target UID:(NSString *)UID SID:(NSString *)SID;
 - (NSXMLElement *)MediaToXMPP:(NSString *)type  data:(NSDictionary *)data target:(XMPPJID *)target UID:(NSString *)UID SID:(NSString *)SID;
 
+- (NSString *)XMPPElementToSDP:(XMPPElement *)iq;
 - (NSString *)XMPPToSDP:(XMPPIQ *)iq;
 - (NSDictionary *)XMPPToCandidate:(XMPPIQ *)iq;
 
