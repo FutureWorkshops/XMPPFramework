@@ -18,23 +18,6 @@
     NSMutableString *groupStr = [[NSMutableString alloc]init]; // TO be set once ready
     NSMutableArray *names = [[NSMutableArray alloc] init];
 
-    // Get group content
-   /* NSArray *groups = [[iq elementForName:@"jingle"] elementForName:@"group"];
-    if (groups != nil)
-    {
-        NSLog(@"Error in retrieving groups");
-    }
-    
-    NSMutableArray *names = [[NSMutableArray alloc] init];
-    NSXMLElement *group;
-    if ([groups count] > 0)
-    {
-        group = [[iq elementForName:@"jingle"] elementForName:@"group"];
-    }
-    else
-    {
-        group = (NSXMLElement *)[groups objectAtIndex:0];   // TBD: for multiple groups
-    }*/
     NSXMLElement *group;
 
     if (jElement == nil)
@@ -954,8 +937,6 @@
     NSXMLElement *contentElement = [NSXMLElement elementWithName:@"content"];
     [contentElement addAttributeWithName:@"creator" stringValue:@"responder"];
     [contentElement addAttributeWithName:@"name" stringValue:media];
-    
-    //NSXMLElement *transElement = transElement1;
     
     NSXMLElement *transElement = [NSXMLElement elementWithName:@"transport"];
     [transElement addAttributeWithName:@"xmlns" stringValue:@"urn:xmpp:jingle:transports:ice-udp:1"];
