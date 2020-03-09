@@ -9,6 +9,8 @@
 #import "JAHConvertSDP.h"
 #define SDP_GROUP_XMLNS @"urn:xmpp:jingle:apps:grouping:0"
 
+#define SDP_APPLICATION_MEDIA_NAME @"data"
+
 @implementation XMPPJingleSDPUtil
 
 - (NSString *)parseGroups:(XMPPElement *)jElement
@@ -88,7 +90,7 @@
     NSArray *codeclist = [[content elementForName:@"description"] elementsForName:@"payload-type"];
 
     NSString *name = (NSString *)[content attributeStringValueForName:@"name"];
-    if ([name isEqualToString:@"data"]) {
+    if ([name isEqualToString:SDP_APPLICATION_MEDIA_NAME]) {
         [contentString appendFormat:@"m=application 1 UDP/DTLS/SCTP webrtc-datachannel"];
     } else {
         [contentString appendFormat:@"m=%@ 1 RTP/SAVPF", name];
@@ -538,7 +540,7 @@
             NSDictionary* description = [content objectForKey:@"description"];
             NSString* media_name = [description objectForKey:@"media"];
             if (media_name == nil || [media_name isEqualToString:@""] || [media_name isEqualToString:@"application"]) {
-                media_name = @"data";
+                media_name = SDP_APPLICATION_MEDIA_NAME;
             }
             
             NSXMLElement *groupContent = [NSXMLElement elementWithName:@"content"];
@@ -556,9 +558,9 @@
         NSDictionary* description = [content objectForKey:@"description"];
         NSString* media_name = [description objectForKey:@"media"];
         if (media_name == nil || [media_name isEqualToString:@""] || [media_name isEqualToString:@"application"]) {
-            media_name = @"data";
+            media_name = SDP_APPLICATION_MEDIA_NAME;
         }
-        if ([media_name isEqualToString:@"data"]) {
+        if ([media_name isEqualToString:SDP_APPLICATION_MEDIA_NAME]) {
             continue;
         }
         NSString *ssrc = [description objectForKey:@"ssrc"];
@@ -572,7 +574,7 @@
         //Description
         NSXMLElement *descElement = [NSXMLElement elementWithName:@"description"];
         [descElement addAttributeWithName:@"xmlns" stringValue:@"urn:xmpp:jingle:apps:rtp:1"];
-        if ([media_name isEqualToString:@"data"]) {
+        if ([media_name isEqualToString:SDP_APPLICATION_MEDIA_NAME]) {
             [descElement addAttributeWithName:@"media" stringValue:@"application"];
         } else {
             [descElement addAttributeWithName:@"media" stringValue:media_name];
