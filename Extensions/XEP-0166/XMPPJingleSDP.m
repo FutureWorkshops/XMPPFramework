@@ -543,9 +543,6 @@
         if (media_name == nil || [media_name isEqualToString:@""] || [media_name isEqualToString:@"application"]) {
             media_name = SDP_APPLICATION_MEDIA_NAME;
         }
-        if ([media_name isEqualToString:SDP_APPLICATION_MEDIA_NAME]) {
-            continue;
-        }
         NSString *ssrc = [description objectForKey:@"ssrc"];
         
         //Content
