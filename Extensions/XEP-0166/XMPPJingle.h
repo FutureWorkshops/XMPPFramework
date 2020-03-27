@@ -17,11 +17,11 @@
     NSString* to;
     XMPPStream *myStream;
     NSString *UID;
-    NSString *SID;
 }
 
 // delegate to post msg, TODO: managing queue for dispatching msgs
 @property(nonatomic, assign, nullable) id<XMPPJingleDelegate> delegate;
+@property(nonatomic, assign, readonly, nonnull) NSString *SID;
 
 NS_ASSUME_NONNULL_BEGIN
 

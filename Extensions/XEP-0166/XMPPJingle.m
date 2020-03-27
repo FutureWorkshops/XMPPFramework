@@ -29,6 +29,8 @@
 
 @implementation XMPPJingle
 
+@synthesize SID = _SID;
+
 #pragma mark - XMPP module related methods
 
 // Init
@@ -38,7 +40,7 @@
     enableLogging = NO;
     sdpUtil = [[XMPPJingleSDPUtil alloc]init];
     UID = [XMPPStream generateUUID];
-    SID = [[UID substringToIndex:12] lowercaseString];
+    _SID = [[UID substringToIndex:12] lowercaseString];
     return [self initWithDispatchQueue:NULL];
 }
 
@@ -49,7 +51,7 @@
     enableLogging = NO;
     sdpUtil = [[XMPPJingleSDPUtil alloc]init];
     UID = [XMPPStream generateUUID];
-    SID = [[UID substringToIndex:12] lowercaseString];
+    _SID = [[UID substringToIndex:12] lowercaseString];
     if ((self = [super initWithDispatchQueue:queue]))
     {
     }
@@ -171,13 +173,13 @@
     // Parse SDP
     if ([type isEqualToString:@"session-initiate"])
     {
-        XMPPIQ *sdp = [sdpUtil SDPToXMPP:[data objectForKey:@"sdp"] action:type initiator:[myStream myJID] target:target UID:UID SID:SID];
+        XMPPIQ *sdp = [sdpUtil SDPToXMPP:[data objectForKey:@"sdp"] action:type initiator:[myStream myJID] target:target UID:UID SID:_SID];
         if (sdp != nil)
             [myStream sendElement:sdp];
     }
     else if ([type isEqualToString:@"session-accept"])
     {
-        XMPPIQ *sdp = [sdpUtil SDPToXMPP:[data objectForKey:@"sdp"] action:type initiator:[myStream myJID] target:target UID:UID SID:SID];
+        XMPPIQ *sdp = [sdpUtil SDPToXMPP:[data objectForKey:@"sdp"] action:type initiator:[myStream myJID] target:target UID:UID SID:_SID];
         if (sdp != nil)
             [myStream sendElement:sdp];
     }
@@ -187,7 +189,7 @@
 
 - (NSXMLElement*) getVideoContent:(NSString *)type  data:(NSDictionary *)data target:(XMPPJID *)target
 {
-    return [sdpUtil MediaToXMPP:type data:data target:target UID:UID SID:SID];    
+    return [sdpUtil MediaToXMPP:type data:data target:target UID:UID SID:_SID];
 }
 
 // For Action (type) attribute: "transport-accept", "transport-info", "transport-reject", "transport-replace"
@@ -196,7 +198,7 @@
     // Parse SDP
     if ([type isEqualToString:@"transport-info"])
     {
-        XMPPIQ *candidate = [sdpUtil CandidateToXMPP:data media:nil action:type initiator:target/*[myStream myJID]*/ target:target UID:UID SID:SID];
+        XMPPIQ *candidate = [sdpUtil CandidateToXMPP:data media:nil action:type initiator:target/*[myStream myJID]*/ target:target UID:UID SID:_SID];
         if (candidate != nil)
             [myStream sendElement:candidate];
     }
@@ -247,7 +249,7 @@
     NSString *sessionid = [jingle attributeStringValueForName:@"sid"];
     if (sessionid)
     {
-        SID = sessionid;
+        _SID = sessionid;
     }
     
     NSString *bridgeSession = [[jingle elementForName:@"bridge-session" xmlns:@"http://jitsi.org/protocol/focus"] attributeStringValueForName:@"id"];
@@ -279,6 +281,18 @@
     [jsonDict setValue:iq.fromStr forKey:@"from"];
     [jsonDict setValue:iq.toStr forKey:@"to"];
     
+    XMPPElement *jingle = [iq elementForName:@"jingle" xmlns:XEP_0166_XMLNS];
+    
+    NSString *initiator = [jingle attributeStringValueForName:@"initiator"];
+    if (initiator) {
+        [jsonDict setValue:initiator forKey:@"initiator"];
+    }
+    [jsonDict setValue:jingle.XMLString forKey:@"jingle"];
+    
+    NSString *bridgeSession = [[jingle elementForName:@"bridge-session" xmlns:@"http://jitsi.org/protocol/focus"] attributeStringValueForName:@"id"];
+    if (bridgeSession) {
+        [jsonDict setValue:bridgeSession forKey:@"bridge-session"];
+    }
     
     // post the message to delegate
     [self.delegate didReceiveSessionMsg:sid type:@"session-accept" data:jsonDict];
@@ -303,13 +317,15 @@
     NSDictionary *candidate = [sdpUtil XMPPToCandidate:iq];
     [candidate setValue:iq.fromStr forKey:@"from"];
     [candidate setValue:iq.toStr forKey:@"to"];
-    NSString *initiator = [[iq elementForName:@"jingle"] attributeStringValueForName:@"initiator"];
+    DDXMLElement *jingle = [iq elementForName:@"jingle"];
+    NSString *initiator = [jingle attributeStringValueForName:@"initiator"];
     if (initiator) {
         [candidate setValue:initiator forKey:@"initiator"];
     }
+    NSString *sid = [jingle attributeStringValueForName:@"sid"];
     
     // post the message to delegate
-    [self.delegate didReceiveTransportMsg:[candidate objectForKey:@"sid"] type:@"transport-info" data:candidate];
+    [self.delegate didReceiveTransportMsg:sid type:@"transport-info" data:candidate];
 }
 
 // Called when a transport-reject message is received
