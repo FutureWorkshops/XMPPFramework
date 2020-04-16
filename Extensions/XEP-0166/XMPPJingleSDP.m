@@ -76,7 +76,7 @@
     if ([name isEqualToString:SDP_APPLICATION_MEDIA_NAME]) {
         [contentString appendFormat:@"m=application 1 UDP/DTLS/SCTP webrtc-datachannel"];
     } else {
-        [contentString appendFormat:@"m=%@ 1 RTP/SAVPF", name];
+        [contentString appendFormat:@"m=%@ 1 UDP/TLS/RTP/SAVPF", name];
     }
     for (int i=0; i<[codeclist count]; i++)
     {
@@ -312,20 +312,6 @@
 
     }
     
-    // Next line is ssrc
-    NSXMLElement *ssrc = [[content elementForName:@"description"] elementForName:@"ssrc"];
-    if (ssrc)
-    {
-        NSString *cname = [ssrc attributeStringValueForName:@"cname"];
-        if (cname) [contentString appendFormat:@"a=ssrc:%@ cname:%@\r\n", [ssrc attributeStringValueForName:@"ssrc"], cname];
-        NSString *msid = [ssrc attributeStringValueForName:@"msid"];
-        if (msid) [contentString appendFormat:@"a=ssrc:%@ msid:%@\r\n", [ssrc attributeStringValueForName:@"ssrc"], msid];
-        NSString *mslabel = [ssrc attributeStringValueForName:@"mslabel"];
-        if (mslabel) [contentString appendFormat:@"a=ssrc:%@ mslabel:%@\r\n", [ssrc attributeStringValueForName:@"ssrc"], mslabel];
-        NSString *label = [ssrc attributeStringValueForName:@"label"];
-        if (label) [contentString appendFormat:@"a=ssrc:%@ label:%@\r\n", [ssrc attributeStringValueForName:@"ssrc"], label];
-    }
-    
     NSArray *sourceGroups = [[content elementForName:@"description"] elementsForName:@"ssrc-group"];
     for (NSXMLElement *group in sourceGroups) {
         NSArray *sourceIds = [group elementsForName:@"source"];
@@ -355,6 +341,11 @@
         for (NSXMLElement *parameter in parameters) {
             NSString *name = [parameter attributeStringValueForName:@"name"];
             NSString *value = [parameter attributeStringValueForName:@"value"];
+            
+            if ([name isEqualToString:@"msid"] && [value componentsSeparatedByString:@" "].count != 2) {
+                //This is a security check. To avoid invalid MSID keys
+                continue;
+            }
             
             [sourceParameters setValue:value forKey:name];
         }
