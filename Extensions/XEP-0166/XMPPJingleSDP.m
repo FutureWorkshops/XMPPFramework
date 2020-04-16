@@ -751,8 +751,7 @@
                 {
                     NSXMLElement *fprElement = [NSXMLElement elementWithName:@"fingerprint"];
                     [fprElement addAttributeWithName:@"xmlns" stringValue:@"urn:xmpp:jingle:apps:dtls:0"];
-                    //[fprElement addAttributeWithName:@"hash" stringValue:[fingerPrint[i] objectForKey:@"hash"]];
-                    [fprElement addAttributeWithName:@"hash" stringValue:@"sha-256"];
+                    [fprElement addAttributeWithName:@"hash" stringValue:[fingerPrint[i] objectForKey:@"hash"]];
 
                     NSString *setup = [fingerPrint[i] objectForKey:@"setup"];
                     [fprElement setStringValue:[fingerPrint[i] objectForKey:@"value"]];
@@ -760,19 +759,7 @@
                     
                     [transElement addChild:fprElement];
                     
-                    fprElement1 = [NSXMLElement elementWithName:@"fingerprint"];
-                    [fprElement1 addAttributeWithName:@"xmlns" stringValue:@"urn:xmpp:jingle:apps:dtls:0"];
-                    //[fprElement1 addAttributeWithName:@"hash" stringValue:[fingerPrint[i] objectForKey:@"hash"]];
-                    [fprElement1 addAttributeWithName:@"hash" stringValue:@"sha-256"];
-                    
-                    
-                    [fprElement1 setStringValue:[fingerPrint[i] objectForKey:@"value"]];
-                    //[fprElement1 addAttributeWithName:@"required" stringValue:@"false"];
-                    [fprElement1 addAttributeWithName:@"required" stringValue:@"true"];
-                    
-                    //fprElement1 = fprElement;
-                    
-
+                    fprElement1 = [fprElement copy];
                 }
             }
         }
