@@ -22,6 +22,7 @@
     
     NSString *gUfrag;
     NSString *gPwd;
+    NSString *transportOptions;
 }
 - (XMPPElement *)candidateToXMPP:(NSDictionary *)dict;
 - (XMPPIQ *)SDPToXMPP:(NSString *)sdp action:(NSString *)action initiator:(XMPPJID *)initiator target:(XMPPJID *)target UID:(NSString *)UID SID:(NSString *)SID;

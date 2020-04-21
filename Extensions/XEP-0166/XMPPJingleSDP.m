@@ -216,6 +216,11 @@
         [contentString appendString:@"a=rtcp-mux\r\n"];
     }
     
+    if ([[content elementForName:@"description"] elementForName:@"rtcp-rsize"] )
+    {
+        [contentString appendString:@"a=rtcp-rsize\r\n"];
+    }
+    
     // Next line is crypto
     NSXMLElement *encryption = [[content elementForName:@"description"] elementForName:@"encryption"];
     if (encryption)
@@ -699,6 +704,10 @@
         {
             [descElement addChild:[NSXMLElement elementWithName:@"rtcp-mux"]];
         }
+        
+        if ([description objectForKey:@"rsize"] != nil) {
+            [descElement addChild:[NSXMLElement elementWithName:@"rtcp-rsize"]];
+        }
 
         
         // XEP-0294  Header Extensions
@@ -788,6 +797,13 @@
             gPwd = pwd;
                         
             //transElement1 = transElement;
+        }
+        
+        if ([transport objectForKey:@"options"] != nil) {
+            NSString *options = [transport objectForKey:@"options"];
+            [transElement addAttributeWithName:@"options" stringValue:options];
+            [transElement1 addAttributeWithName:@"options" stringValue:options];
+            transportOptions = options;
         }
         
         NSArray *candidates = [transport objectForKey:@"candidate"];
@@ -917,6 +933,9 @@
     [transElement addAttributeWithName:@"xmlns" stringValue:@"urn:xmpp:jingle:transports:ice-udp:1"];
     [transElement addAttributeWithName:@"ufrag" stringValue:gUfrag];
     [transElement addAttributeWithName:@"pwd" stringValue:gPwd];
+    if (transportOptions != nil) {
+        [transElement addAttributeWithName:@"options" stringValue:transportOptions];
+    }
     
     
     NSXMLElement *canElement = [NSXMLElement elementWithName:@"candidate"];
