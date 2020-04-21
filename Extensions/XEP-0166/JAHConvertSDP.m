@@ -154,6 +154,10 @@
             description[@"mux"] = @YES;
         }
 
+        if ([[self class] linesForPrefix:@"a=rtcp-rsize" mediaLines:mediaLines sessionLines:nil]) {
+            description[@"rsize"] = @YES;
+        }
+        
         NSArray* fbLines = [[self class] linesForPrefix:@"a=rtcp-fb:*" mediaLines:mediaLines sessionLines:nil];
         for (NSString* line in fbLines) {
             [description[@"feedback"] addObject:[[self class] rtcpfbForLine:line]];
@@ -206,6 +210,10 @@
         for (NSString* line in candidateLines) {
             [transport[@"candidates"] addObject:[[self class] candidateForLine:line]];
         }
+    }
+    NSString *transportOptions = [[self class] lineForPrefix:@"a=ice-options:" mediaLines:mediaLines sessionLines:sessionLines];
+    if (transportOptions) {
+        transport[@"options"] = [transportOptions substringFromIndex:14];
     }
 
     if ([description[@"descType"] isEqualToString:@"datachannel"]) {
